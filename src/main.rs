@@ -34,9 +34,9 @@ fn main() {
 
         // Draw to the screen when requested
         Event::RedrawRequested(_) => {
+          gl.clear_color(0.2, 0.3, 0.3, 1.0);
           gl.clear(glow::COLOR_BUFFER_BIT);
-          gl.draw_arrays(glow::TRIANGLES, 0, 3);
-
+          
           window.swap_buffers();
         }
 
