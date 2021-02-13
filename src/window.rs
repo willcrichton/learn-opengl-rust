@@ -11,6 +11,7 @@ mod platform {
   pub struct Window(glutin::ContextWrapper<glutin::PossiblyCurrent, winit_window::Window>);
 
   impl Window {
+    // Use glutin to get an OpenGL context from winit via glutin::ContextWrapper
     pub fn build(wb: WindowBuilder, event_loop: &EventLoop<()>) -> (Self, Context) {
       unsafe {
         let windowed_context = glutin::ContextBuilder::new()
@@ -38,12 +39,14 @@ mod platform {
 #[cfg(target_arch = "wasm32")]
 mod platform {
   use super::*;
-  use winit::platform::web::WindowBuilderExtWebSys;
   use wasm_bindgen::JsCast;
+  use winit::platform::web::WindowBuilderExtWebSys;
 
   pub struct Window(winit_window::Window);
 
   impl Window {
+    // Use winit::WindowBuilder::with_canvas and glow::Context::from_webgl2_context
+    // to set up the web window
     pub fn build(wb: WindowBuilder, event_loop: &EventLoop<()>) -> (Self, Context) {
       let canvas = web_sys::window()
         .unwrap()
