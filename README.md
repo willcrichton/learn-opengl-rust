@@ -1,6 +1,6 @@
-# Learning OpenGL in Rust
+# Learn OpenGL in Rust
 
-This repository documents my process in following the [Learning OpenGL](https://learnopengl.com/) book, but with two twists:
+This repository documents my process in following the [Learn OpenGL](https://learnopengl.com/) book, but with two twists:
 1. Using Rust and [glow](https://github.com/grovesNL/glow/) instead of C
 2. Getting both native and web compatibility
 
