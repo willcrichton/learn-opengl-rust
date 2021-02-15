@@ -5,7 +5,7 @@ pub struct Shader {
 }
 
 impl Shader {
-  pub unsafe fn new(gl: &Context, vertex_source: &[u8], fragment_source: &[u8]) -> Self {
+  pub unsafe fn new(gl: &Context, vertex_source: &str, fragment_source: &str) -> Self {
     // Compile individual shaders into OpenGL objects
     let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, vertex_source);
     let fragment_shader = Self::build_shader(&gl, glow::FRAGMENT_SHADER, fragment_source);
@@ -33,14 +33,13 @@ impl Shader {
   unsafe fn build_shader(
     gl: &Context,
     shader_type: u32,
-    source_bytes: &[u8],
+    source: &str,
   ) -> <Context as HasContext>::Shader {
     // Create a new OpenGL shader object
     let shader = gl.create_shader(shader_type).unwrap();
 
     // Pass source to OpenGL
-    let source_str = String::from_utf8_lossy(source_bytes);
-    gl.shader_source(shader, &source_str);
+    gl.shader_source(shader, source);
 
     // Call the OpenGL shader compiler
     gl.compile_shader(shader);
@@ -58,6 +57,7 @@ impl Shader {
     gl.get_uniform_location(self.id, name)
   }
 
+  // I wanted to call this "use" but that's a Rust keyword :'(
   pub unsafe fn activate(&self, gl: &Context) {
     gl.use_program(Some(self.id));
   }
@@ -72,5 +72,11 @@ pub trait SetUniform<T> {
 impl SetUniform<[f32; 4]> for Shader {
   unsafe fn set_uniform(&self, gl: &Context, name: &str, value: [f32; 4]) {
     gl.uniform_4_f32(self.location(gl, name).as_ref(), value[0], value[1], value[2], value[3]);
+  }
+}
+
+impl SetUniform<i32> for Shader {
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: i32) {
+    gl.uniform_1_i32(self.location(gl, name).as_ref(), value);
   }
 }

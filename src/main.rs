@@ -1,6 +1,8 @@
-use crate::{shader::{Shader, SetUniform}, window::Window};
+use crate::{shader::Shader, texture::Texture, window::Window};
+use anyhow::Error;
 use glow::{Context, HasContext};
-use instant::Instant;
+use image::ImageFormat;
+use shader::SetUniform;
 use std::mem::size_of;
 use winit::{
   dpi,
@@ -9,54 +11,70 @@ use winit::{
   window::WindowBuilder,
 };
 
+mod io;
 mod shader;
+mod texture;
 mod window;
 
-unsafe fn build_geometry(gl: &Context) -> <Context as HasContext>::VertexArray {
+unsafe fn build_geometry(gl: &Context) -> Result<<Context as HasContext>::VertexArray, String> {
   // Initialize scene geometry as Rust values
   #[rustfmt::skip]
   let vertices: &[f32] = &[
-     0.5,  0.5, 0.0, 1.0, 0.0, 0.0,
-     0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
-    -0.5, -0.5, 0.0, 0.0, 0.0, 1.0,
-    -0.5,  0.5, 0.0, 1.0, 1.0, 0.0
+     // positions          // colors           // texture coords
+     0.5,  0.5, 0.0,   1.0, 0.0, 0.0,   1.0, 1.0,   // top right
+     0.5, -0.5, 0.0,   0.0, 1.0, 0.0,   1.0, 0.0,   // bottom right
+    -0.5, -0.5, 0.0,   0.0, 0.0, 1.0,   0.0, 0.0,   // bottom left
+    -0.5,  0.5, 0.0,   1.0, 1.0, 0.0,   0.0, 1.0    // top left 
   ];
   let indices: &[u32] = &[0, 1, 3, 1, 2, 3];
 
   // Create a Vertex Array that will reference the vertex and index buffers
-  let vao = gl.create_vertex_array().unwrap();
+  let vao = gl.create_vertex_array()?;
   gl.bind_vertex_array(Some(vao));
 
   // Create a vertex buffer to contain the 3-D coords of vertices
-  let vbo = gl.create_buffer().unwrap();
+  let vbo = gl.create_buffer()?;
   gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
 
   // Convert f32 into a u8 slice and pass to GL
   let (_, vertices_bytes, _) = vertices.align_to::<u8>();
   gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertices_bytes, glow::STATIC_DRAW);
 
-  // Make the vertex buffer the first argument to the vertex shader
-  gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 6 * size_of::<f32>() as i32, 0);
+  // Make the vertex positions the first argument to the vertex shader
+  let stride = 8 * size_of::<f32>() as i32;
+  gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, stride, 0);
   gl.enable_vertex_attrib_array(0);
 
+  // ...then the vertex colors...
   gl.vertex_attrib_pointer_f32(
     1,
     3,
     glow::FLOAT,
     false,
-    6 * size_of::<f32>() as i32,
+    stride,
     3 * size_of::<f32>() as i32,
   );
   gl.enable_vertex_attrib_array(1);
 
+  // and then the vertex texture coordinates
+  gl.vertex_attrib_pointer_f32(
+    2,
+    2,
+    glow::FLOAT,
+    false,
+    stride,
+    6 * size_of::<f32>() as i32,
+  );
+  gl.enable_vertex_attrib_array(2);
+
   // Create an index buffer to contain the set of triangles
-  let ebo = gl.create_buffer().unwrap();
+  let ebo = gl.create_buffer()?;
   gl.bind_buffer(glow::ELEMENT_ARRAY_BUFFER, Some(ebo));
 
   let (_, indices_bytes, _) = indices.align_to::<u8>();
   gl.buffer_data_u8_slice(glow::ELEMENT_ARRAY_BUFFER, indices_bytes, glow::STATIC_DRAW);
 
-  return vao;
+  return Ok(vao);
 }
 
 unsafe fn run_event_loop(
@@ -108,9 +126,18 @@ unsafe fn run_event_loop(
   });
 }
 
-fn main() {
-  #[cfg(target_arch = "wasm32")]
-  console_error_panic_hook::set_once();
+async fn run() -> anyhow::Result<()> {
+  // Asynchronously load textures
+  let mut texture1 = Texture::load("assets/textures/container.jpg", ImageFormat::Jpeg).await?;
+  let mut texture2 = Texture::load("assets/textures/awesomeface.png", ImageFormat::Png).await?;
+
+  let platform = if cfg!(target_arch = "wasm32") {
+    "web"
+  } else {
+    "native"
+  };
+  let vertex_source = io::load_shader(format!("assets/shaders/{}/simple.vert", platform)).await?;
+  let fragment_source = io::load_shader(format!("assets/shaders/{}/simple.frag", platform)).await?;
 
   unsafe {
     let wb = WindowBuilder::new()
@@ -127,41 +154,58 @@ fn main() {
     gl.viewport(0, 0, window_size.width as i32, window_size.height as i32);
 
     // Build scene and render pipeline components
-    let vao = build_geometry(&gl);
-
-    let shader_program = {
-      #[cfg(not(target_arch = "wasm32"))]
-      let (vertex_source, fragment_source) = (
-        include_bytes!("shaders/native/simple.vert"),
-        include_bytes!("shaders/native/simple.frag"),
-      );
-
-      #[cfg(target_arch = "wasm32")]
-      let (vertex_source, fragment_source) = (
-        include_bytes!("shaders/web/simple.vert"),
-        include_bytes!("shaders/web/simple.frag"),
-      );
-
-      Shader::new(&gl, vertex_source, fragment_source)
-    };
-
-    let start = Instant::now();
+    let vao = build_geometry(&gl).map_err(Error::msg)?;
+    let shader_program = Shader::new(&gl, &vertex_source, &fragment_source);
+    texture1.build_texture(&gl)?;
+    texture2.build_texture(&gl)?;
 
     run_event_loop(gl, event_loop, window, move |gl| {
       // Clear the screen with a default color
       gl.clear_color(0.2, 0.3, 0.3, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT);
 
-      let elapsed = (start.elapsed().as_millis() as f32) / 1000.;
-      let green_value = elapsed.sin() / 2. + 0.5;
-      shader_program.set_uniform(&gl, "ourColorUniform", [0., green_value, 0., 1.]);
-
       // Bind geometry and shaders
       shader_program.activate(&gl);
+
+      texture1.bind(&gl, Some(glow::TEXTURE0));
+      texture2.bind(&gl, Some(glow::TEXTURE1));
+      shader_program.set_uniform(&gl, "texture1", 0i32);
+      shader_program.set_uniform(&gl, "texture2", 1i32);
+
       gl.bind_vertex_array(Some(vao));
 
       // Draw to the screen
       gl.draw_elements(glow::TRIANGLES, 6, glow::UNSIGNED_INT, 0);
+    });
+  }
+
+  Ok(())
+}
+
+fn main() {
+  #[cfg(not(target_arch = "wasm32"))]
+  {
+    // Use tokio to run our async functions. This builder is basically the same as
+    // using #[tokio::main]
+    tokio::runtime::Builder::new_current_thread()
+      .enable_all()
+      .build()
+      .unwrap()
+      .block_on(run())
+      .unwrap();
+  }
+
+  #[cfg(target_arch = "wasm32")]
+  {
+    // Print out debug information to the console on panic
+    console_error_panic_hook::set_once();
+
+    // Tokio doesn't work on wasm yet, so we use the wasm_bindgen_futures crate to
+    // run async code
+    wasm_bindgen_futures::spawn_local(async {
+      if let Err(err) = run().await {
+        panic!("Failed with error: {}", err);
+      }
     });
   }
 }

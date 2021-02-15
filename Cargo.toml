@@ -9,7 +9,8 @@ resolver = "2"
 
 [dependencies]
 glow = "0.7"
-
+image = {version = "0.23", default-features = false, features = ["jpeg", "png"]}
+anyhow = "1.0"
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 # General windowing support
@@ -21,11 +22,16 @@ glutin = "0.26"
 # Used for cross-platform access to a system timer
 instant = "0.1"
 
+tokio = {version = "1.2", features = ["fs", "io-util", "rt"]}
+
+
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # Interoperating with Javascript
-web-sys = "0.3"
+web-sys = {version = "0.3", features = ["Request", "Window", "Response"]}
 wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
 
 # Better errors on panic
 console_error_panic_hook = "0.1"
