@@ -1,5 +1,6 @@
 use crate::window::Window;
 use glow::{Context, HasContext};
+use instant::Instant;
 use std::mem::size_of;
 use winit::{
   dpi,
@@ -113,22 +114,22 @@ unsafe fn run_event_loop(
 ) {
   // Event loop
   event_loop.run(move |event, _, control_flow| {
-    *control_flow = ControlFlow::Wait;
+    // Poll means the loop will return continually to check for events rather than listening to
+    // a cvar or something
+    *control_flow = ControlFlow::Poll;
+
     match event {
       Event::LoopDestroyed => {
         return;
-      }
-
-      // "Emitted when all of the event loop's input events have been processed
-      // and redraw processing is about to begin"
-      Event::MainEventsCleared => {
-        window.winit().request_redraw();
       }
 
       // Draw to the screen when requested
       Event::RedrawRequested(_) => {
         draw(&gl);
         window.swap_buffers();
+
+        // We're drawing in a tight loop so immediately request redraw after drawing
+        window.winit().request_redraw();
       }
 
       Event::WindowEvent { ref event, .. } => match event {
@@ -156,9 +157,7 @@ unsafe fn run_event_loop(
 
 fn main() {
   #[cfg(target_arch = "wasm32")]
-  {
-    console_error_panic_hook::set_once();
-  }
+  console_error_panic_hook::set_once();
 
   unsafe {
     let wb = WindowBuilder::new()
@@ -177,14 +176,21 @@ fn main() {
     // Build scene and render pipeline components
     let vao = build_geometry(&gl);
     let shader_program = build_shader_program(&gl);
+    let start = Instant::now();
 
-    run_event_loop(gl, event_loop, window, move |gl| {
+    run_event_loop(gl, event_loop, window, move |gl| {      
       // Clear the screen with a default color
       gl.clear_color(0.2, 0.3, 0.3, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT);
 
       // Bind geometry and shaders
       gl.use_program(Some(shader_program));
+
+      let our_color_location = gl.get_uniform_location(shader_program, "ourColor");
+      let elapsed = (start.elapsed().as_millis() as f32) / 1000.;
+      let green_value = elapsed.sin() / 2. + 0.5;
+      gl.uniform_4_f32(our_color_location.as_ref(), 0., green_value, 0., 1.);
+
       gl.bind_vertex_array(Some(vao));
 
       // Draw to the screen

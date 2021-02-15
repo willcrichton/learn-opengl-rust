@@ -7,17 +7,29 @@ authors = ["Will Crichton <wcrichto@cs.stanford.edu>"]
 edition = "2018"
 resolver = "2"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 glow = "0.7"
 
+
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
-glutin = "0.26"
+# General windowing support
 winit = "0.24"
 
+# Creating OpenGL contexts from native windows
+glutin = "0.26"
+
+# Used for cross-platform access to a system timer
+instant = "0.1"
+
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# Interoperating with Javascript
 web-sys = "0.3"
 wasm-bindgen = "0.2"
-winit = {version = "0.24", features = ["web-sys"]}
+
+# Better errors on panic
 console_error_panic_hook = "0.1"
+
+# Adding web features to relevant crates
+winit = {version = "0.24", features = ["web-sys"]}
+instant = {version = "0.1", features = ["wasm-bindgen"]}
