@@ -1,4 +1,4 @@
-use crate::window::Window;
+use crate::{shader::{Shader, SetUniform}, window::Window};
 use glow::{Context, HasContext};
 use instant::Instant;
 use std::mem::size_of;
@@ -9,74 +9,17 @@ use winit::{
   window::WindowBuilder,
 };
 
+mod shader;
 mod window;
-
-unsafe fn build_shader(
-  gl: &Context,
-  shader_type: u32,
-  source_bytes: &[u8],
-) -> <Context as HasContext>::Shader {
-  let shader = gl.create_shader(shader_type).unwrap();
-
-  let source_str = String::from_utf8_lossy(source_bytes);
-  gl.shader_source(shader, &source_str);
-
-  gl.compile_shader(shader);
-  if !gl.get_shader_compile_status(shader) {
-    panic!(
-      "Shader failed to compile with error: {}",
-      gl.get_shader_info_log(shader)
-    );
-  }
-
-  return shader;
-}
-
-unsafe fn build_shader_program(gl: &Context) -> <Context as HasContext>::Program {
-  // Build individual shaders
-  #[cfg(not(target_arch = "wasm32"))]
-  let (vertex_source, fragment_source) = (
-    include_bytes!("shaders/native/simple.vert"),
-    include_bytes!("shaders/native/simple.frag"),
-  );
-
-  #[cfg(target_arch = "wasm32")]
-  let (vertex_source, fragment_source) = (
-    include_bytes!("shaders/web/simple.vert"),
-    include_bytes!("shaders/web/simple.frag"),
-  );
-
-  let vertex_shader = build_shader(&gl, glow::VERTEX_SHADER, vertex_source);
-  let fragment_shader = build_shader(&gl, glow::FRAGMENT_SHADER, fragment_source);
-
-  // Link shaders into a single program
-  let shader_program = gl.create_program().unwrap();
-  gl.attach_shader(shader_program, vertex_shader);
-  gl.attach_shader(shader_program, fragment_shader);
-
-  gl.link_program(shader_program);
-  if !gl.get_program_link_status(shader_program) {
-    panic!(
-      "Shader program failed to link with error: {}",
-      gl.get_program_info_log(shader_program)
-    );
-  }
-
-  // Cleanup shaders after linking
-  gl.delete_shader(vertex_shader);
-  gl.delete_shader(fragment_shader);
-
-  return shader_program;
-}
 
 unsafe fn build_geometry(gl: &Context) -> <Context as HasContext>::VertexArray {
   // Initialize scene geometry as Rust values
   #[rustfmt::skip]
   let vertices: &[f32] = &[
-     0.5,  0.5, 0.,
-     0.5, -0.5, 0.,
-    -0.5, -0.5, 0.,
-    -0.5,  0.5, 0.
+     0.5,  0.5, 0.0, 1.0, 0.0, 0.0,
+     0.5, -0.5, 0.0, 0.0, 1.0, 0.0,
+    -0.5, -0.5, 0.0, 0.0, 0.0, 1.0,
+    -0.5,  0.5, 0.0, 1.0, 1.0, 0.0
   ];
   let indices: &[u32] = &[0, 1, 3, 1, 2, 3];
 
@@ -93,8 +36,18 @@ unsafe fn build_geometry(gl: &Context) -> <Context as HasContext>::VertexArray {
   gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertices_bytes, glow::STATIC_DRAW);
 
   // Make the vertex buffer the first argument to the vertex shader
-  gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 3 * size_of::<f32>() as i32, 0);
+  gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, 6 * size_of::<f32>() as i32, 0);
   gl.enable_vertex_attrib_array(0);
+
+  gl.vertex_attrib_pointer_f32(
+    1,
+    3,
+    glow::FLOAT,
+    false,
+    6 * size_of::<f32>() as i32,
+    3 * size_of::<f32>() as i32,
+  );
+  gl.enable_vertex_attrib_array(1);
 
   // Create an index buffer to contain the set of triangles
   let ebo = gl.create_buffer().unwrap();
@@ -175,22 +128,36 @@ fn main() {
 
     // Build scene and render pipeline components
     let vao = build_geometry(&gl);
-    let shader_program = build_shader_program(&gl);
+
+    let shader_program = {
+      #[cfg(not(target_arch = "wasm32"))]
+      let (vertex_source, fragment_source) = (
+        include_bytes!("shaders/native/simple.vert"),
+        include_bytes!("shaders/native/simple.frag"),
+      );
+
+      #[cfg(target_arch = "wasm32")]
+      let (vertex_source, fragment_source) = (
+        include_bytes!("shaders/web/simple.vert"),
+        include_bytes!("shaders/web/simple.frag"),
+      );
+
+      Shader::new(&gl, vertex_source, fragment_source)
+    };
+
     let start = Instant::now();
 
-    run_event_loop(gl, event_loop, window, move |gl| {      
+    run_event_loop(gl, event_loop, window, move |gl| {
       // Clear the screen with a default color
       gl.clear_color(0.2, 0.3, 0.3, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT);
 
-      // Bind geometry and shaders
-      gl.use_program(Some(shader_program));
-
-      let our_color_location = gl.get_uniform_location(shader_program, "ourColor");
       let elapsed = (start.elapsed().as_millis() as f32) / 1000.;
       let green_value = elapsed.sin() / 2. + 0.5;
-      gl.uniform_4_f32(our_color_location.as_ref(), 0., green_value, 0., 1.);
+      shader_program.set_uniform(&gl, "ourColorUniform", [0., green_value, 0., 1.]);
 
+      // Bind geometry and shaders
+      shader_program.activate(&gl);
       gl.bind_vertex_array(Some(vao));
 
       // Draw to the screen
