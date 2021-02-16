@@ -1,11 +1,26 @@
+use std::path::Path;
+
+use crate::io;
+use anyhow::Result;
+use tokio::try_join;
 use glow::{Context, HasContext};
-use nalgebra_glm::Mat4;
+use nalgebra_glm::{Mat4, Vec3};
 
 pub struct Shader {
   id: <Context as HasContext>::Program,
 }
 
 impl Shader {
+  pub async unsafe fn load(
+    gl: &Context,
+    vertex_path: impl AsRef<Path>,
+    fragment_path: impl AsRef<Path>,
+  ) -> Result<Self> {
+    let (vertex_source, fragment_source) =
+      try_join!(io::load_shader(vertex_path), io::load_shader(fragment_path))?;
+    Ok(Self::new(gl, &vertex_source, &fragment_source))
+  }
+
   pub unsafe fn new(gl: &Context, vertex_source: &str, fragment_source: &str) -> Self {
     // Compile individual shaders into OpenGL objects
     let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, vertex_source);
@@ -89,6 +104,12 @@ impl SetUniform<[f32; 4]> for Shader {
 impl SetUniform<i32> for Shader {
   unsafe fn set_uniform(&self, gl: &Context, name: &str, value: &i32) {
     gl.uniform_1_i32(self.location(gl, name).as_ref(), *value);
+  }
+}
+
+impl SetUniform<Vec3> for Shader {
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: &Vec3) {
+    gl.uniform_3_f32(self.location(gl, name).as_ref(), value.x, value.y, value.z);
   }
 }
 

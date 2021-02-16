@@ -7,6 +7,7 @@ use glow::Context;
 use nalgebra_glm::{self as glm};
 use winit::event::VirtualKeyCode as Key;
 
+#[derive(Debug)]
 pub struct Camera {
   pub pos: Vec3,
   pub up: Vec3,
@@ -16,22 +17,23 @@ pub struct Camera {
   pub projection: Mat4,
 }
 
-impl Default for Camera {
-  fn default() -> Self {
+impl Camera {
+  pub fn new(pos: Vec3, projection: Mat4, look_at: Vec3) -> Self {
+    let look_dir = glm::normalize(&(pos - look_at));
+
     Camera {
-      pos: glm::zero(),
+      pos,
       up: glm::vec3(0., 1., 0.),
       speed: 2.5,
-      yaw: 0.,
-      pitch: 0.,
-      projection: glm::identity(),
+      yaw: f32::atan2(look_dir.x, look_dir.z).to_degrees(),
+      pitch: f32::asin(-look_dir.y).to_degrees(),
+      projection,
     }
   }
-}
 
-impl Camera {
   pub fn front(&self) -> Vec3 {
-    let yaw = self.yaw.to_radians();
+    // TODO: why is -90 needed?
+    let yaw = (self.yaw - 90.).to_radians();
     let pitch = self.pitch.to_radians();
     glm::vec3(
       yaw.cos() * pitch.cos(),

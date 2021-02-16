@@ -1,121 +1,30 @@
 #![allow(dead_code)]
 
 use crate::{
-  camera::Camera, shader::Shader, texture::Texture, user_inputs::UserInputs, window::Window,
+  camera::Camera,
+  scene::Scene,
+  user_inputs::UserInputs,
+  window::Window,
 };
-use anyhow::Error;
-use glm::Vec3;
 use glow::{Context, HasContext};
-use image::ImageFormat;
 use instant::Instant;
 use nalgebra_glm::{self as glm};
-use shader::SetUniform;
-use std::mem::size_of;
 use winit::{
   dpi,
-  event::{ElementState, Event, MouseButton, VirtualKeyCode as Key, WindowEvent},
+  event::{Event, VirtualKeyCode as Key, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
+#[cfg(target_arch = "wasm32")]
+use winit::event::{ElementState, MouseButton};
 
 mod camera;
 mod io;
+mod scene;
 mod shader;
 mod texture;
 mod user_inputs;
 mod window;
-
-unsafe fn build_geometry(
-  gl: &Context,
-) -> Result<(<Context as HasContext>::VertexArray, Vec<Vec3>), String> {
-  // Initialize scene geometry as Rust values
-  #[rustfmt::skip]
-  let vertices = [
-    -0.5, -0.5, -0.5,  0.0, 0.0,
-     0.5, -0.5, -0.5,  1.0, 0.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-    -0.5,  0.5, -0.5,  0.0, 1.0,
-    -0.5, -0.5, -0.5,  0.0, 0.0,
-
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-     0.5, -0.5,  0.5,  1.0, 0.0,
-     0.5,  0.5,  0.5,  1.0, 1.0,
-     0.5,  0.5,  0.5,  1.0, 1.0,
-    -0.5,  0.5,  0.5,  0.0, 1.0,
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-
-    -0.5,  0.5,  0.5,  1.0, 0.0,
-    -0.5,  0.5, -0.5,  1.0, 1.0,
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-    -0.5,  0.5,  0.5,  1.0, 0.0,
-
-     0.5,  0.5,  0.5,  1.0, 0.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-     0.5, -0.5, -0.5,  0.0, 1.0,
-     0.5, -0.5, -0.5,  0.0, 1.0,
-     0.5, -0.5,  0.5,  0.0, 0.0,
-     0.5,  0.5,  0.5,  1.0, 0.0,
-
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-     0.5, -0.5, -0.5,  1.0, 1.0,
-     0.5, -0.5,  0.5,  1.0, 0.0,
-     0.5, -0.5,  0.5,  1.0, 0.0,
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-
-    -0.5,  0.5, -0.5,  0.0, 1.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-     0.5,  0.5,  0.5,  1.0, 0.0,
-     0.5,  0.5,  0.5,  1.0, 0.0,
-    -0.5,  0.5,  0.5,  0.0, 0.0,
-    -0.5,  0.5, -0.5,  0.0, 1.0f32
-  ];
-  let cube_positions = vec![
-    glm::vec3(0.0f32, 0.0, 0.0),
-    glm::vec3(2.0, 5.0, -15.0),
-    glm::vec3(-1.5, -2.2, -2.5),
-    glm::vec3(-3.8, -2.0, -12.3),
-    glm::vec3(2.4, -0.4, -3.5),
-    glm::vec3(-1.7, 3.0, -7.5),
-    glm::vec3(1.3, -2.0, -2.5),
-    glm::vec3(1.5, 2.0, -2.5),
-    glm::vec3(1.5, 0.2, -1.5),
-    glm::vec3(-1.3, 1.0, -1.5),
-  ];
-
-  // Create a Vertex Array that will reference the vertex and index buffers
-  let vao = gl.create_vertex_array()?;
-  gl.bind_vertex_array(Some(vao));
-
-  // Create a vertex buffer to contain the 3-D coords of vertices
-  let vbo = gl.create_buffer()?;
-  gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-
-  // Convert f32 into a u8 slice and pass to GL
-  let (_, vertices_bytes, _) = vertices.align_to::<u8>();
-  gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertices_bytes, glow::STATIC_DRAW);
-
-  // Make the vertex positions the first argument to the vertex shader
-  let stride = 5 * size_of::<f32>() as i32;
-  gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, stride, 0);
-  gl.enable_vertex_attrib_array(0);
-
-  // and then the vertex texture coordinates
-  gl.vertex_attrib_pointer_f32(
-    1,
-    2,
-    glow::FLOAT,
-    false,
-    stride,
-    3 * size_of::<f32>() as i32,
-  );
-  gl.enable_vertex_attrib_array(1);
-
-  return Ok((vao, cube_positions));
-}
 
 struct State {
   camera: Camera,
@@ -148,6 +57,7 @@ unsafe fn run_event_loop(
   draw: impl Fn(&Context, &State) + 'static,
   update: impl Fn(&mut State, Event<()>) + 'static,
 ) {
+  #[cfg(target_arch = "wasm32")]
   let mut cursor_locked = false;
 
   // Event loop
@@ -214,18 +124,6 @@ unsafe fn run_event_loop(
 }
 
 async fn run() -> anyhow::Result<()> {
-  // Asynchronously load assets (TODO: launch all futures before awaiting)
-  let mut texture1 = Texture::load("assets/textures/container.jpg", ImageFormat::Jpeg).await?;
-  let mut texture2 = Texture::load("assets/textures/awesomeface.png", ImageFormat::Png).await?;
-
-  let platform = if cfg!(target_arch = "wasm32") {
-    "web"
-  } else {
-    "native"
-  };
-  let vertex_source = io::load_shader(format!("assets/shaders/{}/simple.vert", platform)).await?;
-  let fragment_source = io::load_shader(format!("assets/shaders/{}/simple.frag", platform)).await?;
-
   unsafe {
     // Set generic window parameters
     let wb = WindowBuilder::new()
@@ -247,29 +145,19 @@ async fn run() -> anyhow::Result<()> {
     gl.viewport(0, 0, width as i32, height as i32);
 
     // Build scene and render pipeline components
-    let (vao, cube_positions) = build_geometry(&gl).map_err(Error::msg)?;
-    let shader_program = Shader::new(&gl, &vertex_source, &fragment_source);
-
-    texture1.build_texture(&gl)?;
-    texture2.build_texture(&gl)?;
-
-    shader_program.activate(&gl);
-    shader_program.set_uniform(&gl, "texture1", &0i32);
-    shader_program.set_uniform(&gl, "texture2", &1i32);
+    let scene = Scene::build(&gl).await?;
 
     // Set camera parameters
-    let projection = glm::perspective(
-      width as f32 / height as f32,
-      (45f32).to_radians(),
-      0.1,
-      100.,
+    let camera = Camera::new(
+      glm::vec3(0.5, 1.5, 5.),
+      glm::perspective(
+        width as f32 / height as f32,
+        (45f32).to_radians(),
+        0.1,
+        100.,
+      ),
+      glm::zero(),
     );
-    let camera = Camera {
-      pos: glm::vec3(0., 0., 3.),
-      yaw: -90.,
-      projection,
-      ..Default::default()
-    };
 
     // Enable z-culling
     gl.enable(glow::DEPTH_TEST);
@@ -284,31 +172,11 @@ async fn run() -> anyhow::Result<()> {
 
     let draw = move |gl: &Context, state: &State| {
       // Clear the screen with a default color
-      gl.clear_color(0.2, 0.3, 0.3, 1.0);
+      gl.clear_color(0.1, 0.1, 0.1, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
-      // Setup shaders
-      shader_program.activate(&gl);
-
-      texture1.bind(&gl, Some(glow::TEXTURE0));
-      texture2.bind(&gl, Some(glow::TEXTURE1));
-
-      state.camera.bind(&gl, &shader_program);
-
-      // Setup geometry
-      gl.bind_vertex_array(Some(vao));
-
-      // Draw to the screen
-      for (i, pos) in cube_positions.iter().enumerate() {
-        let mut model = glm::translation::<f32>(pos);
-        model = glm::rotate(
-          &model,
-          (20. * i as f32).to_radians(),
-          &glm::vec3(1., 0.3, 0.5),
-        );
-        shader_program.set_uniform(&gl, "model", &model);
-        gl.draw_arrays(glow::TRIANGLES, 0, 36);
-      }
+      // Draw the scene
+      scene.draw(&gl, &state.camera);
     };
 
     let update = move |state: &mut State, event: Event<()>| {

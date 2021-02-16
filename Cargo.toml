@@ -26,6 +26,9 @@ instant = "0.1"
 
 # Math library
 nalgebra-glm = "0.10"
+ 
+# try_join future macro 
+tokio = {version = "1.2", features = ["macros"]}
 
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
@@ -33,7 +36,7 @@ nalgebra-glm = "0.10"
 glutin = "0.26"
 
 # Async I/O runner
-tokio = {version = "1.2", features = ["fs", "io-util", "rt"]}
+tokio = {version = "1.2", features = ["fs", "io-util", "rt", "macros"]}
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
