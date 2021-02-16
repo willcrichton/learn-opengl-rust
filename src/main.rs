@@ -2,6 +2,8 @@ use crate::{shader::Shader, texture::Texture, window::Window};
 use anyhow::Error;
 use glow::{Context, HasContext};
 use image::ImageFormat;
+use instant::Instant;
+use nalgebra_glm::{self as glm};
 use shader::SetUniform;
 use std::mem::size_of;
 use winit::{
@@ -127,7 +129,7 @@ unsafe fn run_event_loop(
 }
 
 async fn run() -> anyhow::Result<()> {
-  // Asynchronously load textures
+  // Asynchronously load assets (TODO: launch all futures before awaiting)
   let mut texture1 = Texture::load("assets/textures/container.jpg", ImageFormat::Jpeg).await?;
   let mut texture2 = Texture::load("assets/textures/awesomeface.png", ImageFormat::Png).await?;
 
@@ -140,6 +142,7 @@ async fn run() -> anyhow::Result<()> {
   let fragment_source = io::load_shader(format!("assets/shaders/{}/simple.frag", platform)).await?;
 
   unsafe {
+    // Set generic window parameters
     let wb = WindowBuilder::new()
       .with_title("LearnOpenGL")
       .with_inner_size(dpi::LogicalSize::new(1024., 768.));
@@ -159,13 +162,21 @@ async fn run() -> anyhow::Result<()> {
     texture1.build_texture(&gl)?;
     texture2.build_texture(&gl)?;
 
+    let start = Instant::now();
     run_event_loop(gl, event_loop, window, move |gl| {
+      let dt = start.elapsed().as_millis() as f32 / 1000.;
+
       // Clear the screen with a default color
       gl.clear_color(0.2, 0.3, 0.3, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT);
 
       // Bind geometry and shaders
       shader_program.activate(&gl);
+
+      let mut trans = glm::identity();
+      trans = glm::rotate(&trans, dt, &glm::vec3(0., 0., 1.));
+      trans = glm::scale(&trans, &glm::vec3(0.5, 0.5, 0.5));
+      shader_program.set_uniform(&gl, "transform", trans);
 
       texture1.bind(&gl, Some(glow::TEXTURE0));
       texture2.bind(&gl, Some(glow::TEXTURE1));
@@ -183,6 +194,12 @@ async fn run() -> anyhow::Result<()> {
 }
 
 fn main() {
+  let future = async {
+    if let Err(err) = run().await {
+      panic!("{:?}", err);
+    }
+  };
+
   #[cfg(not(target_arch = "wasm32"))]
   {
     // Use tokio to run our async functions. This builder is basically the same as
@@ -191,8 +208,7 @@ fn main() {
       .enable_all()
       .build()
       .unwrap()
-      .block_on(run())
-      .unwrap();
+      .block_on(future);
   }
 
   #[cfg(target_arch = "wasm32")]
@@ -202,10 +218,6 @@ fn main() {
 
     // Tokio doesn't work on wasm yet, so we use the wasm_bindgen_futures crate to
     // run async code
-    wasm_bindgen_futures::spawn_local(async {
-      if let Err(err) = run().await {
-        panic!("Failed with error: {}", err);
-      }
-    });
+    wasm_bindgen_futures::spawn_local(future);
   }
 }

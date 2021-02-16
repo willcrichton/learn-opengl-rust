@@ -1,4 +1,5 @@
 use glow::{Context, HasContext};
+use nalgebra_glm::Mat4;
 
 pub struct Shader {
   id: <Context as HasContext>::Program,
@@ -53,7 +54,11 @@ impl Shader {
     return shader;
   }
 
-  unsafe fn location(&self, gl: &Context, name: &str) -> Option<<Context as HasContext>::UniformLocation> {
+  unsafe fn location(
+    &self,
+    gl: &Context,
+    name: &str,
+  ) -> Option<<Context as HasContext>::UniformLocation> {
     gl.get_uniform_location(self.id, name)
   }
 
@@ -63,7 +68,7 @@ impl Shader {
   }
 }
 
-// A Rustic way to expose the uniform_* methods is to have a single polymorphic trait which 
+// A Rustic way to expose the uniform_* methods is to have a single polymorphic trait which
 // we implement for each type.
 pub trait SetUniform<T> {
   unsafe fn set_uniform(&self, gl: &Context, name: &str, value: T);
@@ -71,12 +76,24 @@ pub trait SetUniform<T> {
 
 impl SetUniform<[f32; 4]> for Shader {
   unsafe fn set_uniform(&self, gl: &Context, name: &str, value: [f32; 4]) {
-    gl.uniform_4_f32(self.location(gl, name).as_ref(), value[0], value[1], value[2], value[3]);
+    gl.uniform_4_f32(
+      self.location(gl, name).as_ref(),
+      value[0],
+      value[1],
+      value[2],
+      value[3],
+    );
   }
 }
 
 impl SetUniform<i32> for Shader {
   unsafe fn set_uniform(&self, gl: &Context, name: &str, value: i32) {
     gl.uniform_1_i32(self.location(gl, name).as_ref(), value);
+  }
+}
+
+impl SetUniform<Mat4> for Shader {
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: Mat4) {
+    gl.uniform_matrix_4_f32_slice(self.location(gl, name).as_ref(), false, value.as_slice());
   }
 }

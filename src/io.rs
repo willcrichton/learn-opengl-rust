@@ -13,7 +13,7 @@ pub async fn load_file(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
 
-    // Load files via window::fetch 
+    // Load files via window::fetch
     let window = web_sys::window().unwrap();
     let resp_value = JsFuture::from(window.fetch_with_str(path.to_str().unwrap()))
       .await

@@ -13,10 +13,12 @@ pub struct Texture {
 impl Texture {
   pub async fn load(path: impl AsRef<Path>, format: ImageFormat) -> Result<Self> {
     let image = Some(
-      io::load_image(path, format).await?
-      .flipv() // GL expects (0, 0) is bottom-left of image so flip vertically
-      .into_rgba8()); // Keep all images as RGBA8 for simplicity
-      
+      io::load_image(path, format)
+        .await?
+        .flipv() // GL expects (0, 0) is bottom-left of image so flip vertically
+        .into_rgba8(),
+    ); // Keep all images as RGBA8 for simplicity
+
     Ok(Texture {
       image,
       texture: None,

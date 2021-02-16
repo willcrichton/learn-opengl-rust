@@ -7,23 +7,33 @@ authors = ["Will Crichton <wcrichto@cs.stanford.edu>"]
 edition = "2018"
 resolver = "2"
 
-[dependencies]
-glow = "0.7"
-image = {version = "0.23", default-features = false, features = ["jpeg", "png"]}
-anyhow = "1.0"
 
-[target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
+[dependencies]
+# OpenGL wrapper
+glow = "0.7"
+
 # General windowing support
 winit = "0.24"
 
-# Creating OpenGL contexts from native windows
-glutin = "0.26"
+# General error handling
+anyhow = "1.0"
+
+# Image loader
+image = {version = "0.23", default-features = false, features = ["jpeg", "png"]}
 
 # Used for cross-platform access to a system timer
 instant = "0.1"
 
-tokio = {version = "1.2", features = ["fs", "io-util", "rt"]}
+# Math library
+nalgebra-glm = "0.10"
 
+
+[target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
+# Creating OpenGL contexts from native windows
+glutin = "0.26"
+
+# Async I/O runner
+tokio = {version = "1.2", features = ["fs", "io-util", "rt"]}
 
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
