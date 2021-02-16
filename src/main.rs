@@ -201,7 +201,10 @@ async fn run() -> anyhow::Result<()> {
     shader_program.set_uniform(&gl, "texture2", 1i32);
 
     // Set camera parameters
-    let view = glm::translation::<f32>(&glm::vec3(0., 0., -3.));
+    let camera_target = glm::zero();
+    let camera_up = glm::vec3(0., 1., 0.);
+
+    //let view = glm::translation::<f32>(&glm::vec3(0., 0., -3.));
     let projection = glm::perspective(
       width as f32 / height as f32,
       (45f32).to_radians(),
@@ -214,7 +217,7 @@ async fn run() -> anyhow::Result<()> {
 
     let start = Instant::now();
     run_event_loop(gl, event_loop, window, move |gl| {
-      let _dt = start.elapsed().as_millis() as f32 / 1000.;
+      let time = start.elapsed().as_millis() as f32 / 1000.;
 
       // Clear the screen with a default color
       gl.clear_color(0.2, 0.3, 0.3, 1.0);
@@ -225,6 +228,13 @@ async fn run() -> anyhow::Result<()> {
 
       texture1.bind(&gl, Some(glow::TEXTURE0));
       texture2.bind(&gl, Some(glow::TEXTURE1));
+
+      // Creates a LookAt matrix defined by rotation^T * -translation
+      // where fwd = (pos - target), right = up x fwd, rotation = (right, up, fwd), and translation = pos
+      let radius = 10.;
+      let cam_x = time.sin() * radius;
+      let cam_z = time.cos() * radius;
+      let view = glm::look_at(&glm::vec3(cam_x, 0., cam_z), &camera_target, &camera_up);
 
       shader_program.set_uniform(&gl, "view", view);
       shader_program.set_uniform(&gl, "projection", projection);
