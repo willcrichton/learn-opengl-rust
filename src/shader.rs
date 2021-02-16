@@ -71,11 +71,11 @@ impl Shader {
 // A Rustic way to expose the uniform_* methods is to have a single polymorphic trait which
 // we implement for each type.
 pub trait SetUniform<T> {
-  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: T);
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: &T);
 }
 
 impl SetUniform<[f32; 4]> for Shader {
-  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: [f32; 4]) {
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: &[f32; 4]) {
     gl.uniform_4_f32(
       self.location(gl, name).as_ref(),
       value[0],
@@ -87,13 +87,13 @@ impl SetUniform<[f32; 4]> for Shader {
 }
 
 impl SetUniform<i32> for Shader {
-  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: i32) {
-    gl.uniform_1_i32(self.location(gl, name).as_ref(), value);
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: &i32) {
+    gl.uniform_1_i32(self.location(gl, name).as_ref(), *value);
   }
 }
 
 impl SetUniform<Mat4> for Shader {
-  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: Mat4) {
+  unsafe fn set_uniform(&self, gl: &Context, name: &str, value: &Mat4) {
     gl.uniform_matrix_4_f32_slice(self.location(gl, name).as_ref(), false, value.as_slice());
   }
 }

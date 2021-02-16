@@ -49,3 +49,6 @@ console_error_panic_hook = "0.1"
 # Adding web features to relevant crates
 winit = {version = "0.24", features = ["web-sys"]}
 instant = {version = "0.1", features = ["wasm-bindgen"]}
+
+[patch.crates-io]
+winit = { path = "../winit" }

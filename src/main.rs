@@ -1,4 +1,8 @@
-use crate::{shader::Shader, texture::Texture, window::Window};
+#![allow(dead_code)]
+
+use crate::{
+  camera::Camera, shader::Shader, texture::Texture, user_inputs::UserInputs, window::Window,
+};
 use anyhow::Error;
 use glm::Vec3;
 use glow::{Context, HasContext};
@@ -9,14 +13,16 @@ use shader::SetUniform;
 use std::mem::size_of;
 use winit::{
   dpi,
-  event::{Event, VirtualKeyCode, WindowEvent},
+  event::{ElementState, Event, MouseButton, VirtualKeyCode as Key, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
 
+mod camera;
 mod io;
 mod shader;
 mod texture;
+mod user_inputs;
 mod window;
 
 unsafe fn build_geometry(
@@ -111,12 +117,39 @@ unsafe fn build_geometry(
   return Ok((vao, cube_positions));
 }
 
+struct State {
+  camera: Camera,
+  user_inputs: UserInputs,
+
+  start: Instant,
+  last_tick: Instant,
+}
+
+impl State {
+  pub fn elapsed(&self) -> f32 {
+    self.start.elapsed().as_millis() as f32 / 1000.
+  }
+
+  pub fn dt(&self) -> f32 {
+    self.last_tick.elapsed().as_millis() as f32 / 1000.
+  }
+}
+
+fn lock_cursor(window: &Window) {
+  window.winit().set_cursor_grab(true).unwrap();
+  window.winit().set_cursor_visible(false);
+}
+
 unsafe fn run_event_loop(
   gl: Context,
   event_loop: EventLoop<()>,
   window: Window,
-  draw: impl Fn(&Context) + 'static,
+  mut state: State,
+  draw: impl Fn(&Context, &State) + 'static,
+  update: impl Fn(&mut State, Event<()>) + 'static,
 ) {
+  let mut cursor_locked = false;
+
   // Event loop
   event_loop.run(move |event, _, control_flow| {
     // Poll means the loop will return continually to check for events rather than listening to
@@ -130,7 +163,7 @@ unsafe fn run_event_loop(
 
       // Draw to the screen when requested
       Event::RedrawRequested(_) => {
-        draw(&gl);
+        draw(&gl, &state);
         window.swap_buffers();
 
         // We're drawing in a tight loop so immediately request redraw after drawing
@@ -146,17 +179,37 @@ unsafe fn run_event_loop(
         // Exit loop when CloseRequested raised
         WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
 
-        WindowEvent::KeyboardInput { input, .. } => match input.virtual_keycode {
-          // Exit loop when Escape is pressed
-          Some(VirtualKeyCode::Escape) => {
-            *control_flow = ControlFlow::Exit;
+        WindowEvent::KeyboardInput { input, .. } => {
+          if let Some(keycode) = input.virtual_keycode {
+            match keycode {
+              // Exit loop when Escape is pressed
+              Key::Escape => {
+                *control_flow = ControlFlow::Exit;
+              }
+              _ => {}
+            }
           }
-          _ => {}
-        },
+        }
+
+        // Browsers only let you lock the mouse after a user interaction like clicking
+        #[cfg(target_arch = "wasm32")]
+        WindowEvent::MouseInput {
+          button: MouseButton::Left,
+          state: ElementState::Pressed,
+          ..
+        } => {
+          if !cursor_locked {
+            lock_cursor(&window);
+            cursor_locked = true;
+          }
+        }
+
         _ => (),
       },
       _ => (),
-    }
+    };
+
+    update(&mut state, event);
   });
 }
 
@@ -183,6 +236,10 @@ async fn run() -> anyhow::Result<()> {
     // Build platform-specific window and OpenGL context
     let (window, gl) = Window::build(wb, &event_loop);
 
+    // Native platforms let you immediately lock the mouse
+    #[cfg(not(target_arch = "wasm32"))]
+    lock_cursor(&window);
+
     // Set OpenGL viewport size to window size
     // (note: this seems to only be necessary on web when logical size != physical size)
     let window_size = window.winit().inner_size();
@@ -197,28 +254,35 @@ async fn run() -> anyhow::Result<()> {
     texture2.build_texture(&gl)?;
 
     shader_program.activate(&gl);
-    shader_program.set_uniform(&gl, "texture1", 0i32);
-    shader_program.set_uniform(&gl, "texture2", 1i32);
+    shader_program.set_uniform(&gl, "texture1", &0i32);
+    shader_program.set_uniform(&gl, "texture2", &1i32);
 
     // Set camera parameters
-    let camera_target = glm::zero();
-    let camera_up = glm::vec3(0., 1., 0.);
-
-    //let view = glm::translation::<f32>(&glm::vec3(0., 0., -3.));
     let projection = glm::perspective(
       width as f32 / height as f32,
       (45f32).to_radians(),
       0.1,
       100.,
     );
+    let camera = Camera {
+      pos: glm::vec3(0., 0., 3.),
+      yaw: -90.,
+      projection,
+      ..Default::default()
+    };
 
     // Enable z-culling
     gl.enable(glow::DEPTH_TEST);
 
-    let start = Instant::now();
-    run_event_loop(gl, event_loop, window, move |gl| {
-      let time = start.elapsed().as_millis() as f32 / 1000.;
+    // Build monotlithic state object
+    let state = State {
+      camera,
+      user_inputs: UserInputs::default(),
+      start: Instant::now(),
+      last_tick: Instant::now(),
+    };
 
+    let draw = move |gl: &Context, state: &State| {
       // Clear the screen with a default color
       gl.clear_color(0.2, 0.3, 0.3, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
@@ -229,15 +293,7 @@ async fn run() -> anyhow::Result<()> {
       texture1.bind(&gl, Some(glow::TEXTURE0));
       texture2.bind(&gl, Some(glow::TEXTURE1));
 
-      // Creates a LookAt matrix defined by rotation^T * -translation
-      // where fwd = (pos - target), right = up x fwd, rotation = (right, up, fwd), and translation = pos
-      let radius = 10.;
-      let cam_x = time.sin() * radius;
-      let cam_z = time.cos() * radius;
-      let view = glm::look_at(&glm::vec3(cam_x, 0., cam_z), &camera_target, &camera_up);
-
-      shader_program.set_uniform(&gl, "view", view);
-      shader_program.set_uniform(&gl, "projection", projection);
+      state.camera.bind(&gl, &shader_program);
 
       // Setup geometry
       gl.bind_vertex_array(Some(vao));
@@ -250,10 +306,18 @@ async fn run() -> anyhow::Result<()> {
           (20. * i as f32).to_radians(),
           &glm::vec3(1., 0.3, 0.5),
         );
-        shader_program.set_uniform(&gl, "model", model);
+        shader_program.set_uniform(&gl, "model", &model);
         gl.draw_arrays(glow::TRIANGLES, 0, 36);
       }
-    });
+    };
+
+    let update = move |state: &mut State, event: Event<()>| {
+      state.user_inputs.update(&event);
+      state.camera.update(state.dt(), &state.user_inputs);
+      state.last_tick = Instant::now();
+    };
+
+    run_event_loop(gl, event_loop, window, state, draw, update);
   }
 
   Ok(())
