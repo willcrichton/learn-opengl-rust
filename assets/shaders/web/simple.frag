@@ -1,6 +1,5 @@
 #version 300 es
 precision highp float;
-in vec3 ourColorVarying;
 in vec2 TexCoord;
 
 uniform sampler2D texture1;

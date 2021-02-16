@@ -1,5 +1,4 @@
 #version 330 core
-in vec3 ourColorVarying;
 in vec2 TexCoord;
 
 uniform sampler2D texture1;
