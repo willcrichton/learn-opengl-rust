@@ -1,56 +1,72 @@
 use std::path::Path;
 
-use crate::io;
-use anyhow::{Context as AnyhowContext, Error, Result};
-use glow::{Context, HasContext};
-use image::{ImageFormat, RgbaImage};
+use crate::{
+  io,
+  prelude::*,
+  shader::{BindUniform, Shader},
+};
+use image::ImageFormat;
 
 pub struct Texture {
-  image: Option<RgbaImage>,
-  texture: Option<<Context as HasContext>::Texture>,
+  texture: GlTexture,
+  unit: u32,
 }
 
 impl Texture {
-  pub async fn load(path: impl AsRef<Path>, format: ImageFormat) -> Result<Self> {
-    let image = Some(
-      io::load_image(path, format)
-        .await?
-        .flipv() // GL expects (0, 0) is bottom-left of image so flip vertically
-        .into_rgba8(),
-    ); // Keep all images as RGBA8 for simplicity
+  pub async fn load(
+    gl: &Context,
+    path: impl AsRef<Path>,
+    format: ImageFormat,
+    unit: u32,
+  ) -> Result<Self> {
+    let image = io::load_image(path, format)
+      .await?
+      .flipv() // GL expects (0, 0) is bottom-left of image so flip vertically
+      .into_rgba8();
 
-    Ok(Texture {
-      image,
-      texture: None,
-    })
-  }
+    unsafe {
+      let texture = gl.create_texture().map_err(Error::msg)?;
+      gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+      gl.tex_image_2d(
+        glow::TEXTURE_2D,
+        0,
+        glow::RGBA as i32,
+        image.width() as i32,
+        image.height() as i32,
+        0,
+        glow::RGBA,
+        glow::UNSIGNED_BYTE,
+        Some(image.as_raw()),
+      );
+      gl.generate_mipmap(glow::TEXTURE_2D);
 
-  pub unsafe fn build_texture(&mut self, gl: &Context) -> Result<()> {
-    let image = self.image.take().context("Texture has been built twice")?;
-    let texture = gl.create_texture().map_err(Error::msg)?;
-    gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-    gl.tex_image_2d(
-      glow::TEXTURE_2D,
-      0,
-      glow::RGBA as i32,
-      image.width() as i32,
-      image.height() as i32,
-      0,
-      glow::RGBA,
-      glow::UNSIGNED_BYTE,
-      Some(image.as_raw()),
-    );
-    gl.generate_mipmap(glow::TEXTURE_2D);
-    self.texture = Some(texture);
-    Ok(())
-    // NOTE: image is implicitly deallocated here
-  }
+      gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
+      gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
+      gl.tex_parameter_i32(
+        glow::TEXTURE_2D,
+        glow::TEXTURE_MIN_FILTER,
+        glow::LINEAR_MIPMAP_LINEAR as i32,
+      );
+      gl.tex_parameter_i32(
+        glow::TEXTURE_2D,
+        glow::TEXTURE_MAG_FILTER,
+        glow::LINEAR as i32,
+      );
 
-  pub unsafe fn bind(&self, gl: &Context, slot: Option<u32>) {
-    if let Some(unit) = slot {
-      gl.active_texture(unit);
+      Ok(Texture { texture, unit })
     }
+  }
+}
 
-    gl.bind_texture(glow::TEXTURE_2D, self.texture);
+impl BindUniform for Texture {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+    shader.bind_uniform(gl, name, &(self.unit as i32));
+    let unit = match self.unit {
+      0 => glow::TEXTURE0,
+      1 => glow::TEXTURE1,
+      _ => unimplemented!(),
+    };
+    gl.active_texture(unit);
+    gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
   }
 }

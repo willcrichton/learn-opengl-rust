@@ -76,7 +76,7 @@ impl Shader {
   }
 }
 
-// A Rustic way to expose the uniform_* methods is to have a single polymorphic trait which
+// A Rustic way to expose the uniform_* methods is to have a single trait which
 // we implement for each type.
 pub trait BindUniform {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str);
@@ -105,6 +105,13 @@ impl BindUniform for f32 {
     gl.uniform_1_f32(shader.location(gl, name).as_ref(), *self);
   }
 }
+
+impl BindUniform for u32 {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+    gl.uniform_1_u32(shader.location(gl, name).as_ref(), *self);
+  }
+}
+
 impl BindUniform for Vec3 {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
     gl.uniform_3_f32(shader.location(gl, name).as_ref(), self.x, self.y, self.z);

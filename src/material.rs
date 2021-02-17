@@ -1,19 +1,15 @@
-use crate::prelude::*;
+use crate::{prelude::*, texture::Texture};
 
 use crate::shader::{BindUniform, Shader};
 
 pub struct Material {
-  pub ambient: Vec3,
-  pub diffuse: Vec3,
-  pub specular: Vec3,
+  pub diffuse: Texture,
+  pub specular: Texture,
   pub shininess: f32,
 }
 
 impl BindUniform for Material {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
-    self
-      .ambient
-      .bind_uniform(gl, shader, &format!("{}.ambient", name));
     self
       .diffuse
       .bind_uniform(gl, shader, &format!("{}.diffuse", name));
