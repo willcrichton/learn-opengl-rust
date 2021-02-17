@@ -3,11 +3,11 @@ use crate::{
   shader::{SetUniform, Shader},
 };
 use anyhow::{Error, Result};
-use tokio::try_join;
 use glm::Vec3;
 use glow::{Context, HasContext};
 use nalgebra_glm as glm;
 use std::mem::size_of;
+use tokio::try_join;
 
 pub type GlVertexArray = <Context as HasContext>::VertexArray;
 
@@ -25,47 +25,47 @@ impl Scene {
   pub async unsafe fn build(gl: &Context) -> Result<Self> {
     #[rustfmt::skip]
     let vertices = [
-      -0.5, -0.5, -0.5,
-      0.5, -0.5, -0.5,
-      0.5,  0.5, -0.5,
-      0.5,  0.5, -0.5,
-      -0.5,  0.5, -0.5,
-      -0.5, -0.5, -0.5,
-
-      -0.5, -0.5,  0.5,
-      0.5, -0.5,  0.5,
-      0.5,  0.5,  0.5,
-      0.5,  0.5,  0.5,
-      -0.5,  0.5,  0.5,
-      -0.5, -0.5,  0.5,
-
-      -0.5,  0.5,  0.5,
-      -0.5,  0.5, -0.5,
-      -0.5, -0.5, -0.5,
-      -0.5, -0.5, -0.5,
-      -0.5, -0.5,  0.5,
-      -0.5,  0.5,  0.5,
-
-      0.5,  0.5,  0.5,
-      0.5,  0.5, -0.5,
-      0.5, -0.5, -0.5,
-      0.5, -0.5, -0.5,
-      0.5, -0.5,  0.5,
-      0.5,  0.5,  0.5,
-
-      -0.5, -0.5, -0.5,
-      0.5, -0.5, -0.5,
-      0.5, -0.5,  0.5,
-      0.5, -0.5,  0.5,
-      -0.5, -0.5,  0.5,
-      -0.5, -0.5, -0.5,
-
-      -0.5,  0.5, -0.5,
-      0.5,  0.5, -0.5,
-      0.5,  0.5,  0.5,
-      0.5,  0.5,  0.5,
-      -0.5,  0.5,  0.5,
-      -0.5,  0.5, -0.5f32,
+     -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+      0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+      0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+      0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+     -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+     -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+ 
+     -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+      0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+      0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+      0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+     -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+     -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+ 
+     -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+     -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,
+     -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
+     -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
+     -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,
+     -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+ 
+      0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+      0.5,  0.5, -0.5,  1.0,  0.0,  0.0,
+      0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
+      0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
+      0.5, -0.5,  0.5,  1.0,  0.0,  0.0,
+      0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+ 
+     -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+      0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+      0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+      0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+     -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+     -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+ 
+     -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
+      0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
+      0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+      0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+     -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+     -0.5,  0.5, -0.5,  0.0,  1.0,  0.0f32
     ];
 
     // Setup shared vertex buffer object
@@ -74,20 +74,31 @@ impl Scene {
     gl.bind_buffer(glow::ARRAY_BUFFER, Some(cube_vbo));
     gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, vertices_bytes, glow::STATIC_DRAW);
 
-    let stride = 3 * size_of::<f32>() as i32;
+    let stride = 6 * size_of::<f32>() as i32;
     let bind_data = |vao| {
       gl.bind_vertex_array(Some(vao));
       gl.bind_buffer(glow::ARRAY_BUFFER, Some(cube_vbo));
+
       gl.vertex_attrib_pointer_f32(0, 3, glow::FLOAT, false, stride, 0);
       gl.enable_vertex_attrib_array(0);
+
+      gl.vertex_attrib_pointer_f32(
+        1,
+        3,
+        glow::FLOAT,
+        false,
+        stride,
+        3 * size_of::<f32>() as i32,
+      );
+      gl.enable_vertex_attrib_array(1);
     };
-    
+
     // Cube to be lit
     let cube_vao = gl.create_vertex_array().map_err(Error::msg)?;
     bind_data(cube_vao);
 
     // Light cube
-    let light_pos = glm::vec3(1.2, 1., 2.);
+    let light_pos = glm::vec3(1.2, 0., 2.);
     let light_vao = gl.create_vertex_array().map_err(Error::msg)?;
     bind_data(light_vao);
 
@@ -124,9 +135,17 @@ impl Scene {
     })
   }
 
+  pub fn update(&mut self, elapsed: f32) {
+    self.light_pos = glm::vec3(elapsed.cos(), 0., elapsed.sin());
+  }
+
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
     // Draw cube to be lit
     self.lighting_shader.activate(gl);
+    self.lighting_shader.set_uniform(gl, "viewPos", &camera.pos);
+    self
+      .lighting_shader
+      .set_uniform(gl, "lightPos", &self.light_pos);
     self
       .lighting_shader
       .set_uniform(gl, "model", &glm::identity());

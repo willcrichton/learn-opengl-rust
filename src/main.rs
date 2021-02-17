@@ -1,11 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{
-  camera::Camera,
-  scene::Scene,
-  user_inputs::UserInputs,
-  window::Window,
-};
+use crate::{camera::Camera, scene::Scene, user_inputs::UserInputs, window::Window};
 use glow::{Context, HasContext};
 use instant::Instant;
 use nalgebra_glm::{self as glm};
@@ -27,6 +22,7 @@ mod user_inputs;
 mod window;
 
 struct State {
+  scene: Scene,
   camera: Camera,
   user_inputs: UserInputs,
 
@@ -165,6 +161,7 @@ async fn run() -> anyhow::Result<()> {
     // Build monotlithic state object
     let state = State {
       camera,
+      scene,
       user_inputs: UserInputs::default(),
       start: Instant::now(),
       last_tick: Instant::now(),
@@ -176,12 +173,13 @@ async fn run() -> anyhow::Result<()> {
       gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
 
       // Draw the scene
-      scene.draw(&gl, &state.camera);
+      state.scene.draw(&gl, &state.camera);
     };
 
     let update = move |state: &mut State, event: Event<()>| {
       state.user_inputs.update(&event);
       state.camera.update(state.dt(), &state.user_inputs);
+      state.scene.update(state.elapsed());
       state.last_tick = Instant::now();
     };
 

@@ -2,9 +2,9 @@ use std::path::Path;
 
 use crate::io;
 use anyhow::Result;
-use tokio::try_join;
 use glow::{Context, HasContext};
 use nalgebra_glm::{Mat4, Vec3};
+use tokio::try_join;
 
 pub struct Shader {
   id: <Context as HasContext>::Program,
