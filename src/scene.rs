@@ -1,21 +1,13 @@
-use crate::{
-  camera::Camera,
-  shader::{SetUniform, Shader},
-};
-use anyhow::{Error, Result};
-use glm::Vec3;
-use glow::{Context, HasContext};
-use nalgebra_glm as glm;
+use crate::{camera::Camera, light::Light, material::Material, prelude::*, shader::Shader};
+
 use std::mem::size_of;
 use tokio::try_join;
-
-pub type GlVertexArray = <Context as HasContext>::VertexArray;
 
 pub struct Scene {
   cube_vao: GlVertexArray,
 
   light_vao: GlVertexArray,
-  light_pos: Vec3,
+  light: Light,
 
   lighting_shader: Shader,
   light_cube_shader: Shader,
@@ -31,35 +23,35 @@ impl Scene {
       0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
      -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
      -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
- 
+
      -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
       0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
       0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
       0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
      -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
      -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
- 
+
      -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
      -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,
      -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
      -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
      -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,
      -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
- 
+
       0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
       0.5,  0.5, -0.5,  1.0,  0.0,  0.0,
       0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
       0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
       0.5, -0.5,  0.5,  1.0,  0.0,  0.0,
       0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
- 
+
      -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
       0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
       0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
       0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
      -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
      -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
- 
+
      -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
       0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
       0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
@@ -98,7 +90,6 @@ impl Scene {
     bind_data(cube_vao);
 
     // Light cube
-    let light_pos = glm::vec3(1.2, 0., 2.);
     let light_vao = gl.create_vertex_array().map_err(Error::msg)?;
     bind_data(light_vao);
 
@@ -121,35 +112,54 @@ impl Scene {
       )
     )?;
 
+    let light = Light {
+      position: glm::vec3(1.2, 0., 2.),
+      ambient: glm::vec3(0.2, 0.2, 0.2),
+      diffuse: glm::vec3(0.5, 0.5, 0.5),
+      specular: glm::vec3(1., 1., 1.),
+    };
+
     lighting_shader.activate(&gl);
-    lighting_shader.set_uniform(&gl, "objectColor", &glm::vec3(1., 0.5, 0.31));
-    lighting_shader.set_uniform(&gl, "lightColor", &glm::vec3(1., 1., 1.));
+    lighting_shader.bind_uniform(
+      &gl,
+      "material",
+      &Material {
+        ambient: glm::vec3(1., 0.5, 0.31),
+        diffuse: glm::vec3(1., 0.5, 0.31),
+        specular: glm::vec3(0.5, 0.5, 0.5),
+        shininess: 32.,
+      },
+    );
 
     Ok(Scene {
       cube_vao,
       light_vao,
-      light_pos,
-
+      light,
       lighting_shader,
       light_cube_shader,
     })
   }
 
   pub fn update(&mut self, elapsed: f32) {
-    self.light_pos = glm::vec3(elapsed.cos(), 0., elapsed.sin());
+    self.light.position = glm::vec3(elapsed.cos() * 1.5, 0., elapsed.sin() * 1.5);
+
+    let light_color = glm::vec3(
+      (elapsed * 2.).sin(),
+      (elapsed * 0.7).sin(),
+      (elapsed * 1.3).sin(),
+    );
+    self.light.ambient = light_color * 0.2;
+    self.light.diffuse = light_color * 0.5;
   }
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
     // Draw cube to be lit
     self.lighting_shader.activate(gl);
-    self.lighting_shader.set_uniform(gl, "viewPos", &camera.pos);
+    self.lighting_shader.bind_uniform(&gl, "light", &self.light);
     self
       .lighting_shader
-      .set_uniform(gl, "lightPos", &self.light_pos);
-    self
-      .lighting_shader
-      .set_uniform(gl, "model", &glm::identity());
-    camera.bind(gl, &self.lighting_shader);
+      .bind_uniform(gl, "model", &glm::identity());
+    self.lighting_shader.bind_uniform(gl, "camera", camera);
 
     gl.bind_vertex_array(Some(self.cube_vao));
     gl.draw_arrays(glow::TRIANGLES, 0, 36);
@@ -157,11 +167,10 @@ impl Scene {
     // Draw light cube
     self.light_cube_shader.activate(gl);
 
-    let mut model = glm::translation(&self.light_pos);
+    let mut model = glm::translation(&self.light.position);
     model = glm::scale(&model, &glm::vec3(0.2, 0.2, 0.2));
-    self.light_cube_shader.set_uniform(gl, "model", &model);
-
-    camera.bind(gl, &self.light_cube_shader);
+    self.light_cube_shader.bind_uniform(gl, "model", &model);
+    self.light_cube_shader.bind_uniform(gl, "camera", camera);
 
     gl.bind_vertex_array(Some(self.light_vao));
     gl.draw_arrays(glow::TRIANGLES, 0, 36);

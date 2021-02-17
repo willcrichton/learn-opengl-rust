@@ -1,20 +1,21 @@
 #![allow(dead_code)]
 
-use crate::{camera::Camera, scene::Scene, user_inputs::UserInputs, window::Window};
-use glow::{Context, HasContext};
+use crate::{camera::Camera, prelude::*, scene::Scene, user_inputs::UserInputs, window::Window};
 use instant::Instant;
-use nalgebra_glm::{self as glm};
+#[cfg(target_arch = "wasm32")]
+use winit::event::{ElementState, MouseButton};
 use winit::{
   dpi,
   event::{Event, VirtualKeyCode as Key, WindowEvent},
   event_loop::{ControlFlow, EventLoop},
   window::WindowBuilder,
 };
-#[cfg(target_arch = "wasm32")]
-use winit::event::{ElementState, MouseButton};
 
 mod camera;
 mod io;
+mod light;
+mod material;
+mod prelude;
 mod scene;
 mod shader;
 mod texture;
@@ -41,8 +42,8 @@ impl State {
 }
 
 fn lock_cursor(window: &Window) {
-  window.winit().set_cursor_grab(true).unwrap();
   window.winit().set_cursor_visible(false);
+  window.winit().set_cursor_grab(true).unwrap();
 }
 
 unsafe fn run_event_loop(
@@ -97,7 +98,7 @@ unsafe fn run_event_loop(
           }
         }
 
-        // Browsers only let you lock the mouse after a user interaction like clicking
+        // Browsers only let you lock the mouse after a user interaction, like clicking
         #[cfg(target_arch = "wasm32")]
         WindowEvent::MouseInput {
           button: MouseButton::Left,

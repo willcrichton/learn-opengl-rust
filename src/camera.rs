@@ -1,5 +1,5 @@
 use crate::{
-  shader::{SetUniform, Shader},
+  shader::{BindUniform, Shader},
   user_inputs::UserInputs,
 };
 use glm::{Mat4, Vec3};
@@ -75,9 +75,12 @@ impl Camera {
       self.pos += speed * self.right();
     }
   }
+}
 
-  pub unsafe fn bind(&self, gl: &Context, shader_program: &Shader) {
-    shader_program.set_uniform(&gl, "view", &self.view_matrix());
-    shader_program.set_uniform(&gl, "projection", &self.projection);
+impl BindUniform for Camera {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+    shader.bind_uniform(gl, &format!("{}.view_pos", name), &self.pos);
+    shader.bind_uniform(gl, &format!("{}.view", name), &self.view_matrix());
+    shader.bind_uniform(gl, &format!("{}.projection", name), &self.projection);
   }
 }
