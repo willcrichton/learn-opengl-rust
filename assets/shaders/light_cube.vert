@@ -1,10 +1,4 @@
-#version 330 core
 layout (location = 0) in vec3 aPos;
-
-struct Camera {
-  mat4 view;
-  mat4 projection;
-};
 
 uniform mat4 model;
 uniform Camera camera;

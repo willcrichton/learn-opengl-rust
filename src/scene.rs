@@ -1,5 +1,6 @@
 use crate::{
-  camera::Camera, light::Light, material::Material, prelude::*, shader::Shader, texture::Texture,
+  camera::Camera, light::PointLight, material::Material, prelude::*, shader::Shader,
+  texture::Texture,
 };
 
 use image::ImageFormat;
@@ -11,7 +12,7 @@ pub struct Scene {
   material: Material,
 
   light_vao: GlVertexArray,
-  light: Light,
+  light: PointLight,
 
   lighting_shader: Shader,
   light_cube_shader: Shader,
@@ -109,21 +110,16 @@ impl Scene {
     bind_data(light_vao);
 
     // Load all the shaders
-    let platform = if cfg!(target_arch = "wasm32") {
-      "web"
-    } else {
-      "native"
-    };
     let (lighting_shader, light_cube_shader, diffuse_map, specular_map) = try_join!(
       Shader::load(
         gl,
-        format!("assets/shaders/{}/colors.vert", platform),
-        format!("assets/shaders/{}/colors.frag", platform),
+        "assets/shaders/colors.vert",
+        "assets/shaders/colors.frag",
       ),
       Shader::load(
         gl,
-        format!("assets/shaders/{}/light_cube.vert", platform),
-        format!("assets/shaders/{}/light_cube.frag", platform),
+        "assets/shaders/light_cube.vert",
+        "assets/shaders/light_cube.frag",
       ),
       Texture::load(gl, "assets/textures/container2.png", ImageFormat::Png, 0),
       Texture::load(
@@ -134,7 +130,7 @@ impl Scene {
       )
     )?;
 
-    let light = Light {
+    let light = PointLight {
       position: glm::vec3(1.2, 0., 2.),
       ambient: glm::vec3(0.2, 0.2, 0.2),
       diffuse: glm::vec3(0.5, 0.5, 0.5),

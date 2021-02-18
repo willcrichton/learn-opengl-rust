@@ -1,13 +1,10 @@
 use crate::{
-  shader::{BindUniform, Shader},
+  prelude::*,
+  shader::{BindUniform, Shader, ShaderTypeDef},
   user_inputs::UserInputs,
 };
-use glm::{Mat4, Vec3};
-use glow::Context;
-use nalgebra_glm::{self as glm};
 use winit::event::VirtualKeyCode as Key;
 
-#[derive(Debug)]
 pub struct Camera {
   pub pos: Vec3,
   pub up: Vec3,
@@ -83,4 +80,12 @@ impl BindUniform for Camera {
     shader.bind_uniform(gl, &format!("{}.view", name), &self.view_matrix());
     shader.bind_uniform(gl, &format!("{}.projection", name), &self.projection);
   }
+}
+
+impl ShaderTypeDef for Camera {
+  const TYPE_DEF: &'static str = r#"struct Camera {
+  vec3 view_pos;
+  mat4 view;
+  mat4 projection;    
+};"#;
 }

@@ -15,13 +15,34 @@ impl Shader {
   ) -> Result<Self> {
     let (vertex_source, fragment_source) =
       try_join!(io::load_shader(vertex_path), io::load_shader(fragment_path))?;
-    Ok(Self::new(gl, &vertex_source, &fragment_source))
+    Ok(Self::new(gl, vertex_source, fragment_source))
   }
 
-  pub unsafe fn new(gl: &Context, vertex_source: &str, fragment_source: &str) -> Self {
+  pub unsafe fn new(gl: &Context, mut vertex_source: String, mut fragment_source: String) -> Self {
+    // Add directives needed for each platform
+    let header = if cfg!(target_arch = "wasm32") {
+      "#version 300 es\nprecision highp float;"
+    } else {
+      "#version 330 core"
+    };
+
+    // Add struct definitions for all types in the crate
+    let defs = [
+      crate::camera::Camera::TYPE_DEF,
+      crate::material::Material::TYPE_DEF,
+      crate::light::PointLight::TYPE_DEF,
+      crate::light::DirLight::TYPE_DEF,
+    ]
+    .join("\n");
+
+    let preprocess = |source| format!("{}\n{}\n{}", header, defs, source);
+
+    vertex_source = preprocess(vertex_source);
+    fragment_source = preprocess(fragment_source);
+
     // Compile individual shaders into OpenGL objects
-    let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, vertex_source);
-    let fragment_shader = Self::build_shader(&gl, glow::FRAGMENT_SHADER, fragment_source);
+    let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, &vertex_source);
+    let fragment_shader = Self::build_shader(&gl, glow::FRAGMENT_SHADER, &fragment_source);
 
     // Link shaders into a single program
     let shader_program = gl.create_program().unwrap();
@@ -74,6 +95,10 @@ impl Shader {
   pub unsafe fn bind_uniform<T: BindUniform>(&self, gl: &Context, name: &str, value: &T) {
     value.bind_uniform(gl, self, name);
   }
+}
+
+pub trait ShaderTypeDef {
+  const TYPE_DEF: &'static str;
 }
 
 // A Rustic way to expose the uniform_* methods is to have a single trait which

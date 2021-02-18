@@ -1,6 +1,7 @@
 pub use anyhow::{Context as AnyhowContext, Error, Result};
 pub use glm::{Mat4, Vec3};
 pub use glow::{Context, HasContext};
+pub use macros::{BindUniform, ShaderTypeDef};
 pub use nalgebra_glm as glm;
 
 pub type GlShader = <Context as HasContext>::Shader;

@@ -30,6 +30,8 @@ nalgebra-glm = "0.10"
 # try_join future macro 
 tokio = {version = "1.2", features = ["macros"]}
 
+# Custom derive macros
+macros = {path = "macros"}
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 # Creating OpenGL contexts from native windows
@@ -53,5 +55,16 @@ console_error_panic_hook = "0.1"
 winit = {version = "0.24", features = ["web-sys"]}
 instant = {version = "0.1", features = ["wasm-bindgen"]}
 
+
 [patch.crates-io]
 winit = { path = "../winit" }
+
+
+[profile.dev.package."*"]
+opt-level = 3
+
+
+[profile.dev]
+opt-level = 2
+debug = true
+debug-assertions = true
