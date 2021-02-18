@@ -180,7 +180,7 @@ async fn run() -> anyhow::Result<()> {
     let update = move |state: &mut State, event: Event<()>| {
       state.user_inputs.update(&event);
       state.camera.update(state.dt(), &state.user_inputs);
-      state.scene.update(state.elapsed());
+      state.scene.update(state.elapsed(), &state.camera);
       state.last_tick = Instant::now();
     };
 

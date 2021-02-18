@@ -32,6 +32,7 @@ impl Shader {
       crate::material::Material::TYPE_DEF,
       crate::light::PointLight::TYPE_DEF,
       crate::light::DirLight::TYPE_DEF,
+      crate::light::SpotLight::TYPE_DEF,
     ]
     .join("\n");
 

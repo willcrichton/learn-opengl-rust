@@ -9,6 +9,7 @@ pub struct Camera {
   pub pos: Vec3,
   pub up: Vec3,
   pub speed: f32,
+  pub sensitivity: f32,
   pub pitch: f32,
   pub yaw: f32,
   pub projection: Mat4,
@@ -22,6 +23,7 @@ impl Camera {
       pos,
       up: glm::vec3(0., 1., 0.),
       speed: 2.5,
+      sensitivity: 0.25,
       yaw: f32::atan2(look_dir.x, look_dir.z).to_degrees(),
       pitch: f32::asin(-look_dir.y).to_degrees(),
       projection,
@@ -55,8 +57,8 @@ impl Camera {
 
   pub fn update(&mut self, dt: f32, user_inputs: &UserInputs) {
     let (dx, dy) = user_inputs.mouse_delta;
-    self.yaw += dx as f32;
-    self.pitch = (self.pitch + (-dy as f32)).clamp(-89., 89.);
+    self.yaw += (dx as f32) * self.sensitivity;
+    self.pitch = (self.pitch + (-dy as f32) * self.sensitivity).clamp(-89., 89.);
 
     let speed = self.speed(dt);
     if user_inputs.pressed(Key::W) {

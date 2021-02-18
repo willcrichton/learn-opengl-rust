@@ -1,5 +1,9 @@
 use crate::{
-  camera::Camera, light::PointLight, material::Material, prelude::*, shader::Shader,
+  camera::Camera,
+  light::{DirLight, PointLight, SpotLight},
+  material::Material,
+  prelude::*,
+  shader::Shader,
   texture::Texture,
 };
 
@@ -12,7 +16,7 @@ pub struct Scene {
   material: Material,
 
   light_vao: GlVertexArray,
-  light: PointLight,
+  light: SpotLight,
 
   lighting_shader: Shader,
   light_cube_shader: Shader,
@@ -130,11 +134,33 @@ impl Scene {
       )
     )?;
 
-    let light = PointLight {
-      position: glm::vec3(1.2, 0., 2.),
-      ambient: glm::vec3(0.2, 0.2, 0.2),
+    // let light = DirLight {
+    //   direction: glm::vec3(-0.2, -1.0, -0.3),
+    //   ambient: glm::vec3(0.2, 0.2, 0.2),
+    //   diffuse: glm::vec3(0.5, 0.5, 0.5),
+    //   specular: glm::vec3(1., 1., 1.),
+    // };
+
+    // let light = PointLight {
+    //   position: glm::vec3(1.2, 0., 2.),
+    //   ambient: glm::vec3(0.2, 0.2, 0.2),
+    //   diffuse: glm::vec3(0.5, 0.5, 0.5),
+    //   specular: glm::vec3(1., 1., 1.),
+    //   constant: 1.,
+    //   linear: 0.09,
+    //   quadratic: 0.032
+    // };
+
+    let light = SpotLight {
+      position: glm::zero(),
+      direction: glm::zero(),
+      inner_cut_off: 12.5_f32.to_radians().cos(),
+      outer_cut_off: 17.5_f32.to_radians().cos(),
       diffuse: glm::vec3(0.5, 0.5, 0.5),
       specular: glm::vec3(1., 1., 1.),
+      constant: 1.,
+      linear: 0.09,
+      quadratic: 0.032,
     };
 
     let material = Material {
@@ -153,34 +179,56 @@ impl Scene {
     })
   }
 
-  pub fn update(&mut self, elapsed: f32) {
-    self.light.position = glm::vec3(elapsed.cos() * 1.5, 0., elapsed.sin() * 1.5);
+  pub fn update(&mut self, _elapsed: f32, camera: &Camera) {
+    //self.light.position = glm::vec3(elapsed.cos() * 1.5, 0., elapsed.sin() * 1.5);s
+    self.light.position = camera.pos;
+    self.light.direction = camera.front();
   }
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
     // Draw cube to be lit
     self.lighting_shader.activate(gl);
-    self.lighting_shader.bind_uniform(&gl, "light", &self.light);
+    self
+      .lighting_shader
+      .bind_uniform(&gl, "global_light", &self.light);
     self
       .lighting_shader
       .bind_uniform(&gl, "material", &self.material);
-    self
-      .lighting_shader
-      .bind_uniform(gl, "model", &glm::identity());
     self.lighting_shader.bind_uniform(gl, "camera", camera);
 
     gl.bind_vertex_array(Some(self.cube_vao));
-    gl.draw_arrays(glow::TRIANGLES, 0, 36);
 
-    // Draw light cube
-    self.light_cube_shader.activate(gl);
+    let cube_positions = vec![
+      glm::vec3(0.0f32, 0.0, 0.0),
+      glm::vec3(2.0, 5.0, -15.0),
+      glm::vec3(-1.5, -2.2, -2.5),
+      glm::vec3(-3.8, -2.0, -12.3),
+      glm::vec3(2.4, -0.4, -3.5),
+      glm::vec3(-1.7, 3.0, -7.5),
+      glm::vec3(1.3, -2.0, -2.5),
+      glm::vec3(1.5, 2.0, -2.5),
+      glm::vec3(1.5, 0.2, -1.5),
+      glm::vec3(-1.3, 1.0, -1.5),
+    ];
+    for (i, pos) in cube_positions.iter().enumerate() {
+      let model = glm::rotate(
+        &glm::translation(pos),
+        (20. * (i as f32)).to_radians(),
+        &glm::vec3(1., 0.3, 0.5),
+      );
+      self.lighting_shader.bind_uniform(gl, "model", &model);
+      gl.draw_arrays(glow::TRIANGLES, 0, 36);
+    }
 
-    let mut model = glm::translation(&self.light.position);
-    model = glm::scale(&model, &glm::vec3(0.2, 0.2, 0.2));
-    self.light_cube_shader.bind_uniform(gl, "model", &model);
-    self.light_cube_shader.bind_uniform(gl, "camera", camera);
+    // // Draw light cube
+    // self.light_cube_shader.activate(gl);
 
-    gl.bind_vertex_array(Some(self.light_vao));
-    gl.draw_arrays(glow::TRIANGLES, 0, 36);
+    // let mut model = glm::translation(&self.light.position);
+    // model = glm::scale(&model, &glm::vec3(0.2, 0.2, 0.2));
+    // self.light_cube_shader.bind_uniform(gl, "model", &model);
+    // self.light_cube_shader.bind_uniform(gl, "camera", camera);
+
+    // gl.bind_vertex_array(Some(self.light_vao));
+    // gl.draw_arrays(glow::TRIANGLES, 0, 36);
   }
 }
