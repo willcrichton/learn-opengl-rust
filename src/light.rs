@@ -29,6 +29,7 @@ pub struct SpotLight {
   pub inner_cut_off: f32,
   pub outer_cut_off: f32,
 
+  pub ambient: Vec3,
   pub diffuse: Vec3,
   pub specular: Vec3,
 

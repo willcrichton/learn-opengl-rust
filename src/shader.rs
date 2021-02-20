@@ -98,6 +98,7 @@ impl Shader {
   }
 }
 
+// Trait for custom shader structs that contains a GLSL type definition
 pub trait ShaderTypeDef {
   const TYPE_DEF: &'static str;
 }
@@ -106,6 +107,23 @@ pub trait ShaderTypeDef {
 // we implement for each type.
 pub trait BindUniform {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str);
+}
+
+pub struct UniformArray<T: BindUniform>(pub Vec<T>);
+
+impl<T: BindUniform> BindUniform for UniformArray<T> {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+    shader.bind_uniform(gl, &format!("{}_len", name), &(self.0.len() as i32));
+    for (i, value) in self.0.iter().enumerate() {
+      shader.bind_uniform(gl, &format!("{}[{}]", name, i), value);
+    }
+  }
+}
+
+impl<T: BindUniform> BindUniform for &T {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+    (*self).bind_uniform(gl, shader, name);
+  }
 }
 
 impl BindUniform for [f32; 4] {

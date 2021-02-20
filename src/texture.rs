@@ -19,14 +19,18 @@ impl Texture {
     format: ImageFormat,
     unit: u32,
   ) -> Result<Self> {
+    // Load image from disk
     let image = io::load_image(path, format)
       .await?
       .flipv() // GL expects (0, 0) is bottom-left of image so flip vertically
       .into_rgba8();
 
     unsafe {
+      // Make new texture into TEXTURE_2D global slot
       let texture = gl.create_texture().map_err(Error::msg)?;
       gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+
+      // Bind raw image data to the texture and make mipmap
       gl.tex_image_2d(
         glow::TEXTURE_2D,
         0,
@@ -40,6 +44,7 @@ impl Texture {
       );
       gl.generate_mipmap(glow::TEXTURE_2D);
 
+      // Set wrapping parameters
       gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
       gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
       gl.tex_parameter_i32(

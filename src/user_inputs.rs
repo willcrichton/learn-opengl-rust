@@ -18,6 +18,7 @@ impl UserInputs {
     match event {
       Event::WindowEvent { ref event, .. } => match event {
         WindowEvent::KeyboardInput { input, .. } => {
+          // Update the set of currently pressed keys
           if let Some(keycode) = input.virtual_keycode {
             match input.state {
               ElementState::Pressed => {

@@ -3,7 +3,7 @@ use crate::{
   light::{DirLight, PointLight, SpotLight},
   material::Material,
   prelude::*,
-  shader::Shader,
+  shader::{Shader, UniformArray},
   texture::Texture,
 };
 
@@ -16,7 +16,9 @@ pub struct Scene {
   material: Material,
 
   light_vao: GlVertexArray,
-  light: SpotLight,
+  pointlight_base: PointLight,
+  spotlight: SpotLight,
+  sun: DirLight,
 
   lighting_shader: Shader,
   light_cube_shader: Shader,
@@ -134,33 +136,34 @@ impl Scene {
       )
     )?;
 
-    // let light = DirLight {
-    //   direction: glm::vec3(-0.2, -1.0, -0.3),
-    //   ambient: glm::vec3(0.2, 0.2, 0.2),
-    //   diffuse: glm::vec3(0.5, 0.5, 0.5),
-    //   specular: glm::vec3(1., 1., 1.),
-    // };
-
-    // let light = PointLight {
-    //   position: glm::vec3(1.2, 0., 2.),
-    //   ambient: glm::vec3(0.2, 0.2, 0.2),
-    //   diffuse: glm::vec3(0.5, 0.5, 0.5),
-    //   specular: glm::vec3(1., 1., 1.),
-    //   constant: 1.,
-    //   linear: 0.09,
-    //   quadratic: 0.032
-    // };
-
-    let light = SpotLight {
-      position: glm::zero(),
-      direction: glm::zero(),
-      inner_cut_off: 12.5_f32.to_radians().cos(),
-      outer_cut_off: 17.5_f32.to_radians().cos(),
+    let pointlight_base = PointLight {
+      position: glm::vec3(1.2, 0., 2.),
+      ambient: glm::vec3(0.2, 0.2, 0.2),
       diffuse: glm::vec3(0.5, 0.5, 0.5),
       specular: glm::vec3(1., 1., 1.),
       constant: 1.,
       linear: 0.09,
       quadratic: 0.032,
+    };
+
+    let spotlight = SpotLight {
+      position: glm::zero(),
+      direction: glm::zero(),
+      inner_cut_off: 12.5_f32.to_radians().cos(),
+      outer_cut_off: 17.5_f32.to_radians().cos(),
+      ambient: glm::zero(),
+      diffuse: glm::vec3(0.5, 0.5, 0.5),
+      specular: glm::vec3(1., 1., 1.),
+      constant: 1.,
+      linear: 0.09,
+      quadratic: 0.032,
+    };
+
+    let sun = DirLight {
+      direction: glm::vec3(-0.2, -1.0, -0.3),
+      ambient: glm::vec3(0.05, 0.05, 0.05),
+      diffuse: glm::vec3(0.4, 0.4, 0.4),
+      specular: glm::vec3(0.5, 0.5, 0.5),
     };
 
     let material = Material {
@@ -172,7 +175,9 @@ impl Scene {
     Ok(Scene {
       cube_vao,
       light_vao,
-      light,
+      pointlight_base,
+      spotlight,
+      sun,
       material,
       lighting_shader,
       light_cube_shader,
@@ -181,16 +186,39 @@ impl Scene {
 
   pub fn update(&mut self, _elapsed: f32, camera: &Camera) {
     //self.light.position = glm::vec3(elapsed.cos() * 1.5, 0., elapsed.sin() * 1.5);s
-    self.light.position = camera.pos;
-    self.light.direction = camera.front();
+    self.spotlight.position = camera.pos;
+    self.spotlight.direction = camera.front();
   }
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
     // Draw cube to be lit
+    let point_light_positions = [
+      glm::vec3(0.7, 0.2, 2.0),
+      glm::vec3(2.3, -3.3, -4.0),
+      glm::vec3(-4.0, 2.0, -12.0),
+      glm::vec3(0.0, 0.0, -3.0),
+    ];
     self.lighting_shader.activate(gl);
     self
       .lighting_shader
-      .bind_uniform(&gl, "global_light", &self.light);
+      .bind_uniform(&gl, "dir_lights", &UniformArray(vec![&self.sun]));
+    self
+      .lighting_shader
+      .bind_uniform(&gl, "spot_lights", &UniformArray(vec![&self.spotlight]));
+    self.lighting_shader.bind_uniform(
+      &gl,
+      "point_lights",
+      &UniformArray::<PointLight>(
+        point_light_positions
+          .iter()
+          .cloned()
+          .map(|position| PointLight {
+            position,
+            ..self.pointlight_base
+          })
+          .collect(),
+      ),
+    );
     self
       .lighting_shader
       .bind_uniform(&gl, "material", &self.material);
@@ -220,15 +248,16 @@ impl Scene {
       gl.draw_arrays(glow::TRIANGLES, 0, 36);
     }
 
-    // // Draw light cube
-    // self.light_cube_shader.activate(gl);
+    // Draw light cube
+    self.light_cube_shader.activate(gl);
+    gl.bind_vertex_array(Some(self.light_vao));
 
-    // let mut model = glm::translation(&self.light.position);
-    // model = glm::scale(&model, &glm::vec3(0.2, 0.2, 0.2));
-    // self.light_cube_shader.bind_uniform(gl, "model", &model);
-    // self.light_cube_shader.bind_uniform(gl, "camera", camera);
-
-    // gl.bind_vertex_array(Some(self.light_vao));
-    // gl.draw_arrays(glow::TRIANGLES, 0, 36);
+    for pos in &point_light_positions {
+      let mut model = glm::translation(&pos);
+      model = glm::scale(&model, &glm::vec3(0.2, 0.2, 0.2));
+      self.light_cube_shader.bind_uniform(gl, "model", &model);
+      self.light_cube_shader.bind_uniform(gl, "camera", camera);
+      gl.draw_arrays(glow::TRIANGLES, 0, 36);
+    }
   }
 }
