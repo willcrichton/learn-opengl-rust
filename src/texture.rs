@@ -3,7 +3,7 @@ use std::{io::Cursor, path::Path};
 use crate::{
   io,
   prelude::*,
-  shader::{BindUniform, Shader, ShaderContext},
+  shader::{ActiveShader, BindUniform},
 };
 use image::{io::Reader as ImageReader, DynamicImage};
 
@@ -68,18 +68,11 @@ impl Texture {
 }
 
 impl BindUniform for Texture {
-  unsafe fn bind_uniform(
-    &self,
-    gl: &Context,
-    shader: &Shader,
-    name: &str,
-    context: &mut ShaderContext,
-  ) {
-    let unit = context.num_textures;
-    shader.bind_uniform(gl, name, &(unit as i32), context);
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
+    let unit = shader.new_texture_slot();
+    shader.bind_uniform(gl, name, &(unit as i32));
     let gl_unit = glow::TEXTURE0 + unit;
     gl.active_texture(gl_unit);
     gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-    context.num_textures += 1;
   }
 }

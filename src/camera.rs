@@ -1,6 +1,6 @@
 use crate::{
   prelude::*,
-  shader::{BindUniform, Shader, ShaderContext, ShaderTypeDef},
+  shader::{ActiveShader, BindUniform, ShaderTypeDef},
   user_inputs::UserInputs,
 };
 use winit::event::VirtualKeyCode as Key;
@@ -77,21 +77,10 @@ impl Camera {
 }
 
 impl BindUniform for Camera {
-  unsafe fn bind_uniform(
-    &self,
-    gl: &Context,
-    shader: &Shader,
-    name: &str,
-    context: &mut ShaderContext,
-  ) {
-    shader.bind_uniform(gl, &format!("{}.view_pos", name), &self.pos, context);
-    shader.bind_uniform(gl, &format!("{}.view", name), &self.view_matrix(), context);
-    shader.bind_uniform(
-      gl,
-      &format!("{}.projection", name),
-      &self.projection,
-      context,
-    );
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
+    shader.bind_uniform(gl, &format!("{}.view_pos", name), &self.pos);
+    shader.bind_uniform(gl, &format!("{}.view", name), &self.view_matrix());
+    shader.bind_uniform(gl, &format!("{}.projection", name), &self.projection);
   }
 }
 

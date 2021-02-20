@@ -104,8 +104,7 @@ impl Model {
 
   pub unsafe fn draw(&self, gl: &Context, shader: &Shader) {
     for mesh in &self.meshes {
-      let mut context = shader.activate(gl);
-      mesh.draw(gl, shader, &mut context);
+      mesh.draw(gl, &mut shader.activate(gl));
     }
   }
 }

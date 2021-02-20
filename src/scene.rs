@@ -80,14 +80,10 @@ impl Scene {
       glm::vec3(-4.0, 2.0, -12.0),
       glm::vec3(0.0, 0.0, -3.0),
     ];
-    let mut ctx = self.lighting_shader.activate(gl);
-    self
-      .lighting_shader
-      .bind_uniform(&gl, "dir_lights", &vec![&self.sun], &mut ctx);
-    self
-      .lighting_shader
-      .bind_uniform(&gl, "spot_lights", &vec![&self.spotlight], &mut ctx);
-    self.lighting_shader.bind_uniform(
+    let mut active_shader = self.lighting_shader.activate(gl);
+    active_shader.bind_uniform(&gl, "dir_lights", &vec![&self.sun]);
+    active_shader.bind_uniform(&gl, "spot_lights", &vec![&self.spotlight]);
+    active_shader.bind_uniform(
       &gl,
       "point_lights",
       &point_light_positions
@@ -98,17 +94,9 @@ impl Scene {
           ..self.pointlight_base
         })
         .collect::<Vec<_>>(),
-      &mut ctx,
     );
-    self
-      .lighting_shader
-      .bind_uniform(gl, "camera", camera, &mut ctx);
-    self.lighting_shader.bind_uniform(
-      gl,
-      "model",
-      &glm::translation(&glm::vec3(0., 0., 0.)),
-      &mut ctx,
-    );
+    active_shader.bind_uniform(gl, "camera", camera);
+    active_shader.bind_uniform(gl, "model", &glm::translation(&glm::vec3(0., 0., 0.)));
     self.model.draw(gl, &self.lighting_shader);
   }
 }

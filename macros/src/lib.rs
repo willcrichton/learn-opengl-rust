@@ -28,14 +28,14 @@ pub fn bind_uniform_derive(input: TokenStream) -> TokenStream {
       quote! {
         self
           .#ident
-          .bind_uniform(gl, shader, &format!("{}.{}", name, #ident_str), context);
+          .bind_uniform(gl, shader, &format!("{}.{}", name, #ident_str));
       }
     })
     .collect::<Vec<_>>();
 
   let imp = quote! {
     impl crate::shader::BindUniform for #ident {
-      unsafe fn bind_uniform(&self, gl: &glow::Context, shader: &crate::shader::Shader, name: &str, context: &mut crate::shader::ShaderContext) {
+      unsafe fn bind_uniform(&self, gl: &glow::Context, shader: &mut crate::shader::ActiveShader, name: &str) {
         #(#calls)*
       }
     }

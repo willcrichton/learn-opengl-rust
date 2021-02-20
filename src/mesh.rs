@@ -1,8 +1,4 @@
-use crate::{
-  material::Material,
-  prelude::*,
-  shader::{Shader, ShaderContext},
-};
+use crate::{material::Material, prelude::*, shader::ActiveShader};
 use std::mem::size_of;
 
 #[repr(C)]
@@ -79,9 +75,9 @@ impl Mesh {
     })
   }
 
-  pub unsafe fn draw(&self, gl: &Context, shader: &Shader, context: &mut ShaderContext) {
+  pub unsafe fn draw(&self, gl: &Context, shader: &mut ActiveShader) {
     if let Some(material) = self.material.as_ref() {
-      shader.bind_uniform(gl, "material", material, context);
+      shader.bind_uniform(gl, "material", material);
     }
 
     gl.bind_vertex_array(Some(self.vao));
