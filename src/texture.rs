@@ -1,77 +1,85 @@
-use std::path::Path;
+use std::{io::Cursor, path::Path};
 
 use crate::{
   io,
   prelude::*,
-  shader::{BindUniform, Shader},
+  shader::{BindUniform, Shader, ShaderContext},
 };
-use image::ImageFormat;
+use image::{io::Reader as ImageReader, DynamicImage};
 
+#[derive(Clone)]
 pub struct Texture {
   texture: GlTexture,
-  unit: u32,
+}
+
+fn read_image(bytes: &[u8]) -> Result<DynamicImage> {
+  let format = image::guess_format(&bytes)?;
+  let mut img_reader = ImageReader::new(Cursor::new(bytes));
+  img_reader.set_format(format);
+  Ok(img_reader.decode()?)
 }
 
 impl Texture {
-  pub async fn load(
-    gl: &Context,
-    path: impl AsRef<Path>,
-    format: ImageFormat,
-    unit: u32,
-  ) -> Result<Self> {
+  pub unsafe fn new(gl: &Context, bytes: &[u8], flip: bool) -> Result<Self> {
+    let image = read_image(bytes)?;
+    let image = if flip { image.flipv() } else { image };
+    let image = image.into_rgba8();
+
+    // Make new texture into TEXTURE_2D global slot
+    let texture = gl.create_texture().map_err(Error::msg)?;
+    gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+
+    // Bind raw image data to the texture and make mipmap
+    gl.tex_image_2d(
+      glow::TEXTURE_2D,
+      0,
+      glow::RGBA as i32,
+      image.width() as i32,
+      image.height() as i32,
+      0,
+      glow::RGBA,
+      glow::UNSIGNED_BYTE,
+      Some(image.as_raw()),
+    );
+    gl.generate_mipmap(glow::TEXTURE_2D);
+
+    // Set wrapping parameters
+    gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
+    gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
+    gl.tex_parameter_i32(
+      glow::TEXTURE_2D,
+      glow::TEXTURE_MIN_FILTER,
+      glow::LINEAR_MIPMAP_LINEAR as i32,
+    );
+    gl.tex_parameter_i32(
+      glow::TEXTURE_2D,
+      glow::TEXTURE_MAG_FILTER,
+      glow::LINEAR as i32,
+    );
+
+    Ok(Texture { texture })
+  }
+
+  pub async unsafe fn load(gl: &Context, path: impl AsRef<Path>, flip: bool) -> Result<Self> {
     // Load image from disk
-    let image = io::load_image(path, format)
-      .await?
-      .flipv() // GL expects (0, 0) is bottom-left of image so flip vertically
-      .into_rgba8();
-
-    unsafe {
-      // Make new texture into TEXTURE_2D global slot
-      let texture = gl.create_texture().map_err(Error::msg)?;
-      gl.bind_texture(glow::TEXTURE_2D, Some(texture));
-
-      // Bind raw image data to the texture and make mipmap
-      gl.tex_image_2d(
-        glow::TEXTURE_2D,
-        0,
-        glow::RGBA as i32,
-        image.width() as i32,
-        image.height() as i32,
-        0,
-        glow::RGBA,
-        glow::UNSIGNED_BYTE,
-        Some(image.as_raw()),
-      );
-      gl.generate_mipmap(glow::TEXTURE_2D);
-
-      // Set wrapping parameters
-      gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
-      gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
-      gl.tex_parameter_i32(
-        glow::TEXTURE_2D,
-        glow::TEXTURE_MIN_FILTER,
-        glow::LINEAR_MIPMAP_LINEAR as i32,
-      );
-      gl.tex_parameter_i32(
-        glow::TEXTURE_2D,
-        glow::TEXTURE_MAG_FILTER,
-        glow::LINEAR as i32,
-      );
-
-      Ok(Texture { texture, unit })
-    }
+    let bytes = io::load_file(path).await?;
+    Self::new(gl, &bytes, flip)
   }
 }
 
 impl BindUniform for Texture {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
-    shader.bind_uniform(gl, name, &(self.unit as i32));
-    let unit = match self.unit {
-      0 => glow::TEXTURE0,
-      1 => glow::TEXTURE1,
-      _ => unimplemented!(),
-    };
-    gl.active_texture(unit);
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    context: &mut ShaderContext,
+  ) {
+    let unit = context.num_textures;
+    shader.bind_uniform(gl, name, &(unit as i32), context);
+    let gl_unit = glow::TEXTURE0 + unit;
+    gl.active_texture(gl_unit);
     gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+    context.num_textures += 1;
   }
 }

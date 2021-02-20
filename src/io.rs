@@ -1,9 +1,4 @@
-use image::DynamicImage;
-use image::{io::Reader as ImageReader, ImageFormat};
-use std::{
-  io::{self, Cursor},
-  path::Path,
-};
+use std::{io, path::Path};
 
 pub async fn load_file(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
   let path = path.as_ref();
@@ -36,17 +31,7 @@ pub async fn load_file(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
   };
 }
 
-pub async fn load_image(
-  path: impl AsRef<Path>,
-  format: ImageFormat,
-) -> anyhow::Result<DynamicImage> {
-  let img_bytes = load_file(path).await?;
-  let mut img_reader = ImageReader::new(Cursor::new(img_bytes));
-  img_reader.set_format(format);
-  Ok(img_reader.decode()?)
-}
-
-pub async fn load_shader(path: impl AsRef<Path>) -> anyhow::Result<String> {
-  let shader_bytes = load_file(path).await?;
-  Ok(String::from_utf8(shader_bytes)?)
+pub async fn load_string(path: impl AsRef<Path>) -> anyhow::Result<String> {
+  let bytes = load_file(path).await?;
+  Ok(String::from_utf8(bytes)?)
 }

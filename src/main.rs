@@ -15,6 +15,8 @@ mod camera;
 mod io;
 mod light;
 mod material;
+mod mesh;
+mod model;
 mod prelude;
 mod scene;
 mod shader;

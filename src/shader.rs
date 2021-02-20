@@ -1,7 +1,6 @@
 use std::path::Path;
 
 use crate::{io, prelude::*};
-use tokio::try_join;
 
 pub struct Shader {
   id: GlProgram,
@@ -14,7 +13,7 @@ impl Shader {
     fragment_path: impl AsRef<Path>,
   ) -> Result<Self> {
     let (vertex_source, fragment_source) =
-      try_join!(io::load_shader(vertex_path), io::load_shader(fragment_path))?;
+      try_join!(io::load_string(vertex_path), io::load_string(fragment_path))?;
     Ok(Self::new(gl, vertex_source, fragment_source))
   }
 
@@ -89,12 +88,19 @@ impl Shader {
   }
 
   // I wanted to call this "use" but that's a Rust keyword :'(
-  pub unsafe fn activate(&self, gl: &Context) {
+  pub unsafe fn activate(&self, gl: &Context) -> ShaderContext {
     gl.use_program(Some(self.id));
+    ShaderContext::new()
   }
 
-  pub unsafe fn bind_uniform<T: BindUniform>(&self, gl: &Context, name: &str, value: &T) {
-    value.bind_uniform(gl, self, name);
+  pub unsafe fn bind_uniform<T: BindUniform>(
+    &self,
+    gl: &Context,
+    name: &str,
+    value: &T,
+    context: &mut ShaderContext,
+  ) {
+    value.bind_uniform(gl, self, name, context);
   }
 }
 
@@ -103,31 +109,63 @@ pub trait ShaderTypeDef {
   const TYPE_DEF: &'static str;
 }
 
+pub struct ShaderContext {
+  pub num_textures: u32,
+}
+
+impl ShaderContext {
+  pub fn new() -> Self {
+    ShaderContext { num_textures: 0 }
+  }
+}
+
 // A Rustic way to expose the uniform_* methods is to have a single trait which
 // we implement for each type.
 pub trait BindUniform {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str);
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    context: &mut ShaderContext,
+  );
 }
 
-pub struct UniformArray<T: BindUniform>(pub Vec<T>);
-
-impl<T: BindUniform> BindUniform for UniformArray<T> {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
-    shader.bind_uniform(gl, &format!("{}_len", name), &(self.0.len() as i32));
-    for (i, value) in self.0.iter().enumerate() {
-      shader.bind_uniform(gl, &format!("{}[{}]", name, i), value);
+impl<T: BindUniform> BindUniform for Vec<T> {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    context: &mut ShaderContext,
+  ) {
+    shader.bind_uniform(gl, &format!("{}_len", name), &(self.len() as i32), context);
+    for (i, value) in self.iter().enumerate() {
+      shader.bind_uniform(gl, &format!("{}[{}]", name, i), value, context);
     }
   }
 }
 
 impl<T: BindUniform> BindUniform for &T {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
-    (*self).bind_uniform(gl, shader, name);
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    context: &mut ShaderContext,
+  ) {
+    (*self).bind_uniform(gl, shader, name, context);
   }
 }
 
 impl BindUniform for [f32; 4] {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    _context: &mut ShaderContext,
+  ) {
     gl.uniform_4_f32(
       shader.location(gl, name).as_ref(),
       self[0],
@@ -139,31 +177,61 @@ impl BindUniform for [f32; 4] {
 }
 
 impl BindUniform for i32 {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    _context: &mut ShaderContext,
+  ) {
     gl.uniform_1_i32(shader.location(gl, name).as_ref(), *self);
   }
 }
 
 impl BindUniform for f32 {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    _context: &mut ShaderContext,
+  ) {
     gl.uniform_1_f32(shader.location(gl, name).as_ref(), *self);
   }
 }
 
 impl BindUniform for u32 {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    _context: &mut ShaderContext,
+  ) {
     gl.uniform_1_u32(shader.location(gl, name).as_ref(), *self);
   }
 }
 
 impl BindUniform for Vec3 {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    _context: &mut ShaderContext,
+  ) {
     gl.uniform_3_f32(shader.location(gl, name).as_ref(), self.x, self.y, self.z);
   }
 }
 
 impl BindUniform for Mat4 {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &Shader, name: &str) {
+  unsafe fn bind_uniform(
+    &self,
+    gl: &Context,
+    shader: &Shader,
+    name: &str,
+    _context: &mut ShaderContext,
+  ) {
     gl.uniform_matrix_4_f32_slice(shader.location(gl, name).as_ref(), false, self.as_slice());
   }
 }

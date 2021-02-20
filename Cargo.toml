@@ -27,11 +27,14 @@ instant = "0.1"
 # Math library
 nalgebra-glm = "0.10"
  
-# try_join future macro 
-tokio = {version = "1.2", features = ["macros"]}
+# future helpers
+futures = "0.3"
 
 # Custom derive macros
 macros = {path = "macros"}
+
+# OBJ model loading
+tobj = "2.0"
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 # Creating OpenGL contexts from native windows

@@ -1,8 +1,8 @@
 use crate::{prelude::*, texture::Texture};
 
-#[derive(BindUniform, ShaderTypeDef)]
+#[derive(BindUniform, ShaderTypeDef, Clone)]
 pub struct Material {
-  pub diffuse: Texture,
-  pub specular: Texture,
+  pub diffuse: Vec<Texture>,
+  pub specular: Vec<Texture>,
   pub shininess: f32,
 }
