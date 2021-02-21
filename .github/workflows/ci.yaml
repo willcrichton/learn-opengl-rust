@@ -8,6 +8,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
+          override: true
       - run: cargo install -f cargo-make && python3 scripts/build_all.py
       - uses: peaceiris/actions-gh-pages@v3
         with:
