@@ -4,6 +4,8 @@ use crate::{camera::Camera, prelude::*, scene::Scene, user_inputs::UserInputs, w
 use instant::Instant;
 #[cfg(target_arch = "wasm32")]
 use winit::event::{ElementState, MouseButton};
+#[cfg(target_arch = "wasm32")]
+use winit::event::{ElementState, MouseButton};
 use winit::{
   dpi,
   event::{Event, VirtualKeyCode as Key, WindowEvent},
@@ -36,11 +38,11 @@ struct State {
 
 impl State {
   pub fn elapsed(&self) -> f32 {
-    self.start.elapsed().as_millis() as f32 / 1000.
+    self.start.elapsed().as_nanos() as f32 / 1e9
   }
 
   pub fn dt(&self) -> f32 {
-    self.last_tick.elapsed().as_millis() as f32 / 1000.
+    self.last_tick.elapsed().as_nanos() as f32 / 1e9
   }
 }
 
@@ -48,6 +50,8 @@ fn lock_cursor(window: &Window) {
   window.winit().set_cursor_visible(false);
   window.winit().set_cursor_grab(true).unwrap();
 }
+
+const DRAW_RATE: f32 = 60.;
 
 unsafe fn run_event_loop(
   gl: Context,
@@ -61,6 +65,7 @@ unsafe fn run_event_loop(
   let mut cursor_locked = false;
 
   // Event loop
+  let mut last_draw = Instant::now();
   event_loop.run(move |event, _, control_flow| {
     // Poll means the loop will return continually to check for events rather than listening to
     // a cvar or something
@@ -75,9 +80,6 @@ unsafe fn run_event_loop(
       Event::RedrawRequested(_) => {
         draw(&gl, &state);
         window.swap_buffers();
-
-        // We're drawing in a tight loop so immediately request redraw after drawing
-        window.winit().request_redraw();
       }
 
       Event::WindowEvent { ref event, .. } => match event {
@@ -118,6 +120,13 @@ unsafe fn run_event_loop(
       },
       _ => (),
     };
+
+    let since_last_draw = last_draw.elapsed().as_millis() as f32 / 1000.;
+    if since_last_draw > 1. / DRAW_RATE {
+      draw(&gl, &state);
+      window.swap_buffers();
+      last_draw = Instant::now();
+    }
 
     update(&mut state, event);
   });
@@ -181,6 +190,7 @@ async fn run() -> anyhow::Result<()> {
     };
 
     let update = move |state: &mut State, event: Event<()>| {
+      println!("{:?}", state.dt());
       state.user_inputs.update(&event);
       state.camera.update(state.dt(), &state.user_inputs);
       state.scene.update(state.elapsed(), &state.camera);

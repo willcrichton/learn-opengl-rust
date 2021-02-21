@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use winit::event::{DeviceEvent, ElementState, Event, VirtualKeyCode as Key, WindowEvent};
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct UserInputs {
   keys_pressed: HashSet<Key>,
   pub mouse_delta: (f32, f32),
