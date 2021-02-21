@@ -9,7 +9,7 @@ jobs:
         with:
           toolchain: nightly
           override: true
-      - run: cargo install -f cargo-make && python3 scripts/build_all.py
+      - run: git clone https://github.com/willcrichton/winit/ .. && cargo install -f cargo-make && python3 scripts/build_all.py
       - uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
