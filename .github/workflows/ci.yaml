@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # gets every branch and tag
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
