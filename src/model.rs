@@ -3,14 +3,15 @@ use crate::{
   material::Material,
   mesh::{Mesh, Vertex},
   prelude::*,
-  shader::Shader,
+  shader::ActiveShader,
   texture::Texture,
 };
 use futures::future::try_join_all;
 use std::{collections::HashMap, io::BufReader, path::Path};
 
+#[derive(Clone)]
 pub struct Model {
-  meshes: Vec<Mesh>,
+  pub meshes: Vec<Mesh>,
 }
 
 // fn obj_to_mesh(model: tobj::Model, mtl: tobj::Material, files: &HashMap<String, Vec<u8>>) -> Mesh {
@@ -63,8 +64,8 @@ impl Model {
       .into_iter()
       .map(|obj_material| {
         Ok(Material {
-          diffuse: vec![load_texture(&obj_material.diffuse_texture)?],
-          specular: vec![load_texture(&obj_material.specular_texture)?],
+          diffuse: load_texture(&obj_material.diffuse_texture)?,
+          specular: load_texture(&obj_material.specular_texture)?,
           shininess: obj_material.shininess,
         })
       })
@@ -102,9 +103,9 @@ impl Model {
     Ok(Model { meshes })
   }
 
-  pub unsafe fn draw(&self, gl: &Context, shader: &Shader) {
+  pub unsafe fn draw(&self, gl: &Context, shader: &mut ActiveShader) {
     for mesh in &self.meshes {
-      mesh.draw(gl, &mut shader.activate(gl));
+      mesh.draw(gl, shader);
     }
   }
 }

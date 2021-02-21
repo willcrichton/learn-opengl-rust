@@ -12,6 +12,7 @@ use winit::{
 };
 
 mod camera;
+mod geometry;
 mod io;
 mod light;
 mod material;

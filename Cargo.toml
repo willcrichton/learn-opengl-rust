@@ -1,5 +1,3 @@
-cargo-features = ["resolver"]
-
 [package]
 name = "learning-opengl"
 version = "0.1.0"
@@ -26,7 +24,7 @@ instant = "0.1"
 
 # Math library
 nalgebra-glm = "0.10"
- 
+
 # future helpers
 futures = "0.3"
 
@@ -35,6 +33,7 @@ macros = {path = "macros"}
 
 # OBJ model loading
 tobj = "2.0"
+
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]
 # Creating OpenGL contexts from native windows

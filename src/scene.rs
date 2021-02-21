@@ -1,102 +1,119 @@
 use crate::{
   camera::Camera,
+  geometry::Geometry,
   light::{DirLight, PointLight, SpotLight},
+  material::Material,
   model::Model,
   prelude::*,
-  shader::Shader,
+  shader::{ActiveShader, Shader},
+  texture::Texture,
 };
 
-pub struct Scene {
+struct Entity {
   model: Model,
+  transform: Mat4,
+}
 
-  pointlight_base: PointLight,
-  spotlight: SpotLight,
-  sun: DirLight,
+impl Entity {
+  unsafe fn draw(&self, gl: &Context, shader: &mut ActiveShader) {
+    shader.bind_uniform(gl, "model", &self.transform);
+    self.model.draw(gl, shader);
+  }
+}
 
-  lighting_shader: Shader,
+pub struct Scene {
+  entities: Vec<Entity>,
+
+  point_lights: Vec<PointLight>,
+  spot_lights: Vec<SpotLight>,
+  dir_lights: Vec<DirLight>,
+
+  shader: Shader,
 }
 
 impl Scene {
   pub async unsafe fn build(gl: &Context) -> Result<Self> {
     // Load all the assets
-    let (lighting_shader, model) = try_join!(
+    let (shader, metal_texture, marble_texture) = try_join!(
       Shader::load(
         gl,
         "assets/shaders/colors.vert",
         "assets/shaders/colors.frag"
       ),
-      Model::load(gl, "assets/models/backpack")
+      Texture::load(gl, "assets/textures/metal.png", true),
+      Texture::load(gl, "assets/textures/marble.jpg", true)
     )?;
 
-    let pointlight_base = PointLight {
-      position: glm::vec3(1.2, 0., 2.),
-      ambient: glm::vec3(0.2, 0.2, 0.2),
-      diffuse: glm::vec3(0.5, 0.5, 0.5),
-      specular: glm::vec3(1., 1., 1.),
-      constant: 1.,
-      linear: 0.09,
-      quadratic: 0.032,
+    let plane_model = Geometry::Plane {
+      length: 10.,
+      width: 10.,
+      normal: glm::vec3(0., 1., 0.),
+    }
+    .to_mesh(
+      gl,
+      Some(Material {
+        diffuse: metal_texture.clone(),
+        specular: metal_texture,
+        shininess: 16.,
+      }),
+    )?
+    .to_model();
+    let plane = Entity {
+      model: plane_model,
+      transform: glm::translation(&glm::vec3(0., -0.5, 0.)),
     };
 
-    let spotlight = SpotLight {
-      position: glm::zero(),
-      direction: glm::zero(),
-      inner_cut_off: 12.5_f32.to_radians().cos(),
-      outer_cut_off: 17.5_f32.to_radians().cos(),
-      ambient: glm::zero(),
-      diffuse: glm::vec3(0.5, 0.5, 0.5),
-      specular: glm::vec3(1., 1., 1.),
-      constant: 1.,
-      linear: 0.09,
-      quadratic: 0.032,
+    let box_model = Geometry::Cube {
+      length: 1.,
+      width: 1.,
+      height: 1.,
+    }
+    .to_mesh(
+      gl,
+      Some(Material {
+        diffuse: marble_texture.clone(),
+        specular: marble_texture,
+        shininess: 16.,
+      }),
+    )?
+    .to_model();
+
+    let cube1 = Entity {
+      model: box_model.clone(),
+      transform: glm::translation(&glm::vec3(-1., 0., -1.)),
+    };
+    let cube2 = Entity {
+      model: box_model,
+      transform: glm::translation(&glm::vec3(2., 0., 0.)),
     };
 
     let sun = DirLight {
-      direction: glm::vec3(-0.2, -1.0, -0.3),
-      ambient: glm::vec3(0.05, 0.05, 0.05),
-      diffuse: glm::vec3(0.4, 0.4, 0.4),
-      specular: glm::vec3(0.5, 0.5, 0.5),
+      direction: glm::vec3(1., -1., 0.),
+      ambient: glm::vec3(0.2, 0.2, 0.2),
+      diffuse: glm::vec3(0.5, 0.5, 0.5),
+      specular: glm::vec3(1., 1., 1.),
     };
 
     Ok(Scene {
-      pointlight_base,
-      spotlight,
-      sun,
-      lighting_shader,
-      model,
+      entities: vec![plane, cube1, cube2],
+      point_lights: vec![],
+      spot_lights: vec![],
+      dir_lights: vec![sun],
+      shader,
     })
   }
 
-  pub fn update(&mut self, _elapsed: f32, camera: &Camera) {
-    self.spotlight.position = camera.pos;
-    self.spotlight.direction = camera.front();
-  }
+  pub fn update(&mut self, _elapsed: f32, camera: &Camera) {}
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
-    // Draw cube to be lit
-    let point_light_positions = [
-      glm::vec3(0.7, 0.2, 2.0),
-      glm::vec3(2.3, -3.3, -4.0),
-      glm::vec3(-4.0, 2.0, -12.0),
-      glm::vec3(0.0, 0.0, -3.0),
-    ];
-    let mut active_shader = self.lighting_shader.activate(gl);
-    active_shader.bind_uniform(&gl, "dir_lights", &vec![&self.sun]);
-    active_shader.bind_uniform(&gl, "spot_lights", &vec![&self.spotlight]);
-    active_shader.bind_uniform(
-      &gl,
-      "point_lights",
-      &point_light_positions
-        .iter()
-        .cloned()
-        .map(|position| PointLight {
-          position,
-          ..self.pointlight_base
-        })
-        .collect::<Vec<_>>(),
-    );
-    active_shader.bind_uniform(gl, "camera", camera);
-    active_shader.bind_uniform(gl, "model", &glm::translation(&glm::vec3(0., 0., 0.)));
-    self.model.draw(gl, &self.lighting_shader);
+    let mut shader = self.shader.activate(gl);
+    shader.bind_uniform(&gl, "dir_lights", &self.dir_lights);
+    shader.bind_uniform(&gl, "spot_lights", &self.spot_lights);
+    shader.bind_uniform(&gl, "point_lights", &self.point_lights);
+    shader.bind_uniform(gl, "camera", camera);
+
+    for entity in &self.entities {
+      entity.draw(gl, &mut shader);
+    }
   }
 }

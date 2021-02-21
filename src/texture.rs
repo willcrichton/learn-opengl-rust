@@ -72,6 +72,7 @@ impl BindUniform for Texture {
     let unit = shader.new_texture_slot();
     shader.bind_uniform(gl, name, &(unit as i32));
     let gl_unit = glow::TEXTURE0 + unit;
+    println!("binding {} to {}", name, unit);
     gl.active_texture(gl_unit);
     gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
   }

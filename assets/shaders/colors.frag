@@ -16,36 +16,23 @@ out vec4 FragColor;
 
 
 vec3 compute_light(vec3 lightVec, vec3 light_ambient, vec3 light_diffuse, vec3 light_specular) {
-  // Note: web's GLSL 300 es doesn't support non-constant expressions on sampler arrays
-  // so we have to use preprocessor to unroll the for loop
-  vec3 diffuse_sum = vec3(0.);
-  #define DIFFUSE_SUM(I) if (I < material.diffuse_len) diffuse_sum += vec3(texture(material.diffuse[I], TexCoords))
-  DIFFUSE_SUM(0);
-  DIFFUSE_SUM(1);
-  DIFFUSE_SUM(2);
-  DIFFUSE_SUM(3);
-
-  vec3 specular_sum = vec3(0.);
-  #define SPECULAR_SUM(I) if (I < material.specular_len) specular_sum += vec3(texture(material.specular[I], TexCoords))
-  SPECULAR_SUM(0);
-  SPECULAR_SUM(1);
-  SPECULAR_SUM(2);
-  SPECULAR_SUM(3);
+  vec3 diffuse_tex = vec3(texture(material.diffuse, TexCoords));
+  vec3 specular_tex = vec3(texture(material.specular, TexCoords));
     
   // Ambient
-  vec3 ambient = light_ambient * diffuse_sum;
+  vec3 ambient = light_ambient * diffuse_tex;
 
   // Diffuse
   vec3 norm = normalize(Normal);
   vec3 lightDir = normalize(lightVec);
   float diff = max(dot(norm, lightDir), 0.);
-  vec3 diffuse = light_diffuse * diff * diffuse_sum;
+  vec3 diffuse = light_diffuse * diff * diffuse_tex;
 
   // Specular
   vec3 viewDir = normalize(camera.view_pos - FragPos);
   vec3 reflectDir = reflect(-lightDir, norm);
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
-  vec3 specular = light_specular * spec * specular_sum;
+  vec3 specular = light_specular * spec * specular_tex;
 
   return ambient + diffuse + specular;
 }

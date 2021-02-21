@@ -1,6 +1,7 @@
-use crate::{material::Material, prelude::*, shader::ActiveShader};
+use crate::{material::Material, model::Model, prelude::*, shader::ActiveShader};
 use std::mem::size_of;
 
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct Vertex {
   pub position: Vec3,
@@ -8,6 +9,20 @@ pub struct Vertex {
   pub tex_coords: Vec2,
 }
 
+impl Vertex {
+  pub fn from_flat_array(values: &[f32]) -> Vec<Vertex> {
+    values
+      .chunks(8)
+      .map(|chunk| Vertex {
+        position: glm::vec3(chunk[0], chunk[1], chunk[2]),
+        normal: glm::vec3(chunk[3], chunk[4], chunk[5]),
+        tex_coords: glm::vec2(chunk[6], chunk[7]),
+      })
+      .collect()
+  }
+}
+
+#[derive(Clone)]
 pub struct Mesh {
   pub vertices: Vec<Vertex>,
   pub indices: Vec<u32>,
@@ -88,5 +103,11 @@ impl Mesh {
       0,
     );
     gl.bind_vertex_array(None);
+
+    shader.reset_textures();
+  }
+
+  pub fn to_model(self) -> Model {
+    Model { meshes: vec![self] }
   }
 }

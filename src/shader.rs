@@ -104,6 +104,7 @@ pub struct ActiveShader<'a> {
   num_textures: u32,
 }
 
+// TODO: this API still doesn't feel quite right wrt handling texture slots
 impl<'a> ActiveShader<'a> {
   pub fn new(shader: &'a Shader) -> Self {
     ActiveShader {
@@ -124,6 +125,10 @@ impl<'a> ActiveShader<'a> {
 
   pub unsafe fn location(&self, gl: &Context, name: &str) -> Option<GlUniformLocation> {
     self.shader.location(gl, name)
+  }
+
+  pub fn reset_textures(&mut self) {
+    self.num_textures = 0;
   }
 }
 
