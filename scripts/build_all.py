@@ -11,6 +11,7 @@ for tag in tags:
     mkdir dist/{tag}/assets && \
     cd dist/{tag}/assets && \
     ln -s ../../assets/* . && \
+    cd - && \
     (cp -r assets/shaders dist/{tag}/assets ||: ) && \
     git stash''', 
       shell=True)
