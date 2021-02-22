@@ -1,6 +1,15 @@
 import subprocess as sp
 
-sp.check_call('mkdir dist', shell=True)
+sp.check_call('mkdir dist && cp -r assets dist && rm -rf dist/assets/shaders', shell=True)
+
 tags = sp.check_output('git tag', shell=True).decode('utf-8').strip().split('\n')
 for tag in tags:
-    sp.check_call(f'git checkout tags/{tag} && cargo make build-web && cp -r wasm dist/{tag} && git stash', shell=True)
+    sp.check_call(f''' git checkout tags/{tag} && \
+    cargo make build-web && \
+    rm wasm/assets && \
+    cp -r wasm dist/{tag} && \
+    mkdir dist/{tag}/assets && \      
+    ln -s dist/assets/* dist/{tag}/assets/
+    (cp -r assets/shaders dist/{tag}/assets 2>/dev/null) && \
+    git stash''', 
+      shell=True)
