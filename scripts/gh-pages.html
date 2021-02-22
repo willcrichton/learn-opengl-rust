@@ -41,7 +41,7 @@
         <div class="tab-content">
           {% for tag in tags %}
           <div class="tab-pane {{ 'active' if loop.index ==  tags|length  else '' }}" id="{{ tag.key }}" role="tabpanel">
-            <iframe data-src="http://willcrichton.net/learn-opengl-rust/{{ tag.orig }}/" width="1040" height="790"></iframe>
+            <iframe data-src="https://willcrichton.net/learn-opengl-rust/{{ tag.orig }}/" width="1040" height="790"></iframe>
           </div>
           {% endfor %}
         </div>
