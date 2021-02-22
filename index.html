@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+
+    <title>Learn OpenGL in Rust</title>
+
+    <style>
+      .tag-list button {
+        text-align: left;
+      }
+
+      .description {
+        padding: 10px;
+        border-radius: 4px;
+        background: #eee;
+      }
+
+      body {
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Learn OpenGL in Rust</h1>
+      <p class="description">
+        This page shows my progress through the <a href="https://learnopengl.com/">Learn OpenGL</a> book. Each tab corresponds to the end of a chapter. 
+        <a href="https://github.com/willcrichton/learn-opengl-rust">The renderer</a> is written in Rust.
+        You can explore each checkpoint by clicking the buttons on the left. Chapters 7 and beyond have a fly camera &mdash; click the canvas after it's loaded to control it (mouse + WASD).
+      </p>
+      <div class="d-flex align-items-start">
+        <div class="nav flex-column nav-pills me-3 tag-list" role="tablist">
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#hello-window" type="button" role="tab">01-hello-window</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#hello-triangle" type="button" role="tab">02-hello-triangle</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#shaders" type="button" role="tab">03-shaders</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#textures" type="button" role="tab">04-textures</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#transformations" type="button" role="tab">05-transformations</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#coordinate-systems" type="button" role="tab">06-coordinate-systems</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#camera" type="button" role="tab">07-camera</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#colors" type="button" role="tab">08-colors</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#basic-lighting" type="button" role="tab">09-basic-lighting</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#materials" type="button" role="tab">10-materials</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#lighting-maps" type="button" role="tab">11-lighting-maps</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#light-casters" type="button" role="tab">12-light-casters</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#multiple-lights" type="button" role="tab">13-multiple-lights</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#model-loading" type="button" role="tab">14-model-loading</button>
+          
+          <button class="nav-link " data-bs-toggle="pill" data-bs-target="#depth-testing" type="button" role="tab">15-depth-testing</button>
+          
+          <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#stencil-testing" type="button" role="tab">16-stencil-testing</button>
+          
+        </div>
+        <div class="tab-content">
+          
+          <div class="tab-pane " id="hello-window" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/01-hello-window/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="hello-triangle" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/02-hello-triangle/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="shaders" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/03-shaders/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="textures" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/04-textures/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="transformations" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/05-transformations/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="coordinate-systems" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/06-coordinate-systems/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="camera" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/07-camera/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="colors" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/08-colors/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="basic-lighting" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/09-basic-lighting/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="materials" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/10-materials/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="lighting-maps" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/11-lighting-maps/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="light-casters" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/12-light-casters/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="multiple-lights" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/13-multiple-lights/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="model-loading" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/14-model-loading/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane " id="depth-testing" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/15-depth-testing/" width="1040" height="790"></iframe>
+          </div>
+          
+          <div class="tab-pane active" id="stencil-testing" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/16-stencil-testing/" width="1040" height="790"></iframe>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/js/bootstrap.bundle.min.js" integrity="sha384-b5kHyXgcpbZJO/tY9Ul7kGkf1S0CWuKcCD38l8YkeH8z8QjE0GmW1gYU5S9FOnJ0" crossorigin="anonymous"></script>
+    <script>
+      let activate = pane => {
+        let iframe = pane.querySelector('iframe');
+        iframe.src = iframe.dataset.src;
+      };
+
+      activate(document.querySelector('.tab-pane.active'));
+
+      document.querySelectorAll('.nav-link').forEach(button => {
+        button.addEventListener('click', () => {
+          let pane = document.querySelector(button.dataset.bsTarget);
+          activate(pane);    
+        })
+      });
+    </script>
+  </body>
+</html>
