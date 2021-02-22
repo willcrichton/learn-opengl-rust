@@ -8,7 +8,7 @@ for tag in tags:
     cargo make build-web && \
     rm -f wasm/assets && \
     cp -r wasm dist/{tag} && \
-    mkdir dist/{tag}/assets && \      
+    mkdir dist/{tag}/assets && \
     cd dist/{tag}/assets && \
     ln -s ../../assets/* . && \
     (cp -r assets/shaders dist/{tag}/assets 2>/dev/null) && \
