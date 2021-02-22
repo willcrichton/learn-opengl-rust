@@ -59,8 +59,10 @@ unsafe fn run_event_loop(
   draw: impl Fn(&Context, &State) + 'static,
   update: impl Fn(&mut State, Event<()>, bool) + 'static,
 ) {
-  //#[cfg(target_arch = "wasm32")]
-  let mut cursor_locked = if cfg!(target_arch = "wasm32") { false } else { true };
+  #[cfg(target_arch = "wasm32")]
+  let mut cursor_locked = false;
+  #[cfg(not(target_arch = "wasm32"))]
+  let cursor_locked = true;
 
   // Event loop
   let mut last_draw = Instant::now();
@@ -169,6 +171,9 @@ async fn run() -> anyhow::Result<()> {
     // Turn on OpenGL features
     gl.enable(glow::DEPTH_TEST);
     gl.enable(glow::STENCIL_TEST);
+    gl.enable(glow::BLEND);
+
+    gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
     // Build monotlithic state object
     let state = State {

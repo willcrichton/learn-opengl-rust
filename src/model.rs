@@ -4,7 +4,7 @@ use crate::{
   mesh::{Mesh, Vertex},
   prelude::*,
   shader::ActiveShader,
-  texture::Texture,
+  texture::TextureBuilder,
 };
 use futures::future::try_join_all;
 use std::{collections::HashMap, io::BufReader, path::Path};
@@ -57,7 +57,7 @@ impl Model {
 
     let load_texture = |path: &str| {
       let bytes = file_map.get(path).context("texture missing")?;
-      Texture::new(gl, bytes, false)
+      TextureBuilder::new(gl).with_flip(false).from_bytes(bytes)
     };
 
     let materials = obj_materials

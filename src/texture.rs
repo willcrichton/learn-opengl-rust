@@ -1,4 +1,4 @@
-use std::{io::Cursor, path::Path};
+use std::{collections::HashMap, io::Cursor, path::Path};
 
 use crate::{
   io,
@@ -7,11 +7,6 @@ use crate::{
 };
 use image::{io::Reader as ImageReader, DynamicImage};
 
-#[derive(Clone)]
-pub struct Texture {
-  texture: GlTexture,
-}
-
 fn read_image(bytes: &[u8]) -> Result<DynamicImage> {
   let format = image::guess_format(&bytes)?;
   let mut img_reader = ImageReader::new(Cursor::new(bytes));
@@ -19,10 +14,40 @@ fn read_image(bytes: &[u8]) -> Result<DynamicImage> {
   Ok(img_reader.decode()?)
 }
 
-impl Texture {
-  pub unsafe fn new(gl: &Context, bytes: &[u8], flip: bool) -> Result<Self> {
+pub struct TextureBuilder<'a> {
+  gl: &'a Context,
+  tex_parameters: HashMap<u32, u32>,
+  flip: bool,
+}
+
+impl<'a> TextureBuilder<'a> {
+  pub fn new(gl: &'a Context) -> Self {
+    TextureBuilder {
+      tex_parameters: hashmap! {
+        glow::TEXTURE_WRAP_S => glow::REPEAT,
+        glow::TEXTURE_WRAP_T => glow::REPEAT,
+        glow::TEXTURE_MIN_FILTER => glow::LINEAR_MIPMAP_LINEAR,
+        glow::TEXTURE_MAG_FILTER => glow::LINEAR
+      },
+      flip: true,
+      gl,
+    }
+  }
+
+  pub fn with_tex_parameter(mut self, parameter: u32, value: u32) -> Self {
+    self.tex_parameters.insert(parameter, value);
+    self
+  }
+
+  pub fn with_flip(mut self, flip: bool) -> Self {
+    self.flip = flip;
+    self
+  }
+
+  pub unsafe fn from_bytes(self, bytes: &[u8]) -> Result<Texture> {
+    let gl = self.gl;
     let image = read_image(bytes)?;
-    let image = if flip { image.flipv() } else { image };
+    let image = if self.flip { image.flipv() } else { image };
     let image = image.into_rgba8();
 
     // Make new texture into TEXTURE_2D global slot
@@ -44,27 +69,22 @@ impl Texture {
     gl.generate_mipmap(glow::TEXTURE_2D);
 
     // Set wrapping parameters
-    gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_S, glow::REPEAT as i32);
-    gl.tex_parameter_i32(glow::TEXTURE_2D, glow::TEXTURE_WRAP_T, glow::REPEAT as i32);
-    gl.tex_parameter_i32(
-      glow::TEXTURE_2D,
-      glow::TEXTURE_MIN_FILTER,
-      glow::LINEAR_MIPMAP_LINEAR as i32,
-    );
-    gl.tex_parameter_i32(
-      glow::TEXTURE_2D,
-      glow::TEXTURE_MAG_FILTER,
-      glow::LINEAR as i32,
-    );
+    for (key, value) in self.tex_parameters.into_iter() {
+      gl.tex_parameter_i32(glow::TEXTURE_2D, key, value as i32);
+    }
 
     Ok(Texture { texture })
   }
 
-  pub async unsafe fn load(gl: &Context, path: impl AsRef<Path>, flip: bool) -> Result<Self> {
-    // Load image from disk
+  pub async unsafe fn from_file(self, path: impl AsRef<Path>) -> Result<Texture> {
     let bytes = io::load_file(path).await?;
-    Self::new(gl, &bytes, flip)
+    self.from_bytes(&bytes)
   }
+}
+
+#[derive(Clone)]
+pub struct Texture {
+  texture: GlTexture,
 }
 
 impl BindUniform for Texture {

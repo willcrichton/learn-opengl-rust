@@ -4,6 +4,7 @@ pub use glm::{Mat4, Vec2, Vec3};
 pub use glow::{Context, HasContext};
 pub use macros::{BindUniform, ShaderTypeDef};
 pub use nalgebra_glm as glm;
+pub use maplit::hashmap;
 
 pub type GlShader = <Context as HasContext>::Shader;
 pub type GlProgram = <Context as HasContext>::Program;
