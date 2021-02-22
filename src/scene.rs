@@ -47,7 +47,7 @@ impl Scene {
       TextureBuilder::new(gl)
         .with_tex_parameter(glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE)
         .with_tex_parameter(glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE)
-        .from_file("assets/textures/grass.png"),
+        .from_file("assets/textures/blending_transparent_window.png"),
     )?;
 
     let plane_model = Geometry::Plane {
@@ -132,7 +132,7 @@ impl Scene {
     let sun = DirLight {
       direction: glm::vec3(-1., -1., -1.),
       ambient: glm::vec3(0.2, 0.2, 0.2),
-      diffuse: glm::vec3(0.5, 0.5, 0.5),
+      diffuse: glm::vec3(0.8, 0.8, 0.8),
       specular: glm::vec3(1., 1., 1.),
     };
 
