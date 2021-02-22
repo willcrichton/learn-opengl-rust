@@ -39,7 +39,8 @@ mod platform {
 #[cfg(target_arch = "wasm32")]
 mod platform {
   use super::*;
-  use wasm_bindgen::JsCast;
+  use std::collections::HashMap;
+  use wasm_bindgen::{JsCast, JsValue};
   use winit::platform::web::WindowBuilderExtWebSys;
 
   pub struct Window(winit_window::Window);
@@ -56,12 +57,20 @@ mod platform {
         .unwrap()
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .unwrap();
+
+      // Have to explicitly ask for a stencil buffer to be allocated, see:
+      // https://www.khronos.org/registry/webgl/specs/1.0/#WEBGLCONTEXTATTRIBUTES
+      let mut context_options = HashMap::new();
+      context_options.insert("stencil", true);
+      let context_options_js = JsValue::from_serde(&context_options).unwrap();
+
       let webgl2_context = canvas
-        .get_context("webgl2")
+        .get_context_with_context_options("webgl2", &context_options_js)
         .unwrap()
         .unwrap()
         .dyn_into::<web_sys::WebGl2RenderingContext>()
         .unwrap();
+
       let window = wb.with_canvas(Some(canvas)).build(event_loop).unwrap();
       let gl = Context::from_webgl2_context(webgl2_context);
       (Window(window), gl)

@@ -166,8 +166,9 @@ async fn run() -> anyhow::Result<()> {
       glm::zero(),
     );
 
-    // Enable z-culling
+    // Turn on OpenGL features
     gl.enable(glow::DEPTH_TEST);
+    gl.enable(glow::STENCIL_TEST);
 
     // Build monotlithic state object
     let state = State {
@@ -181,7 +182,7 @@ async fn run() -> anyhow::Result<()> {
     let draw = move |gl: &Context, state: &State| {
       // Clear the screen with a default color
       gl.clear_color(0.1, 0.1, 0.1, 1.0);
-      gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT);
+      gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT | glow::STENCIL_BUFFER_BIT);
 
       // Draw the scene
       state.scene.draw(&gl, &state.camera);

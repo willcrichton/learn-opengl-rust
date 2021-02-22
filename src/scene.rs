@@ -22,23 +22,30 @@ impl Entity {
 }
 
 pub struct Scene {
-  entities: Vec<Entity>,
+  floor: Entity,
+  cubes: Vec<Entity>,
 
   point_lights: Vec<PointLight>,
   spot_lights: Vec<SpotLight>,
   dir_lights: Vec<DirLight>,
 
-  shader: Shader,
+  light_shader: Shader,
+  border_shader: Shader
 }
 
 impl Scene {
   pub async unsafe fn build(gl: &Context) -> Result<Self> {
     // Load all the assets
-    let (shader, metal_texture, marble_texture) = try_join!(
+    let (light_shader, border_shader, metal_texture, marble_texture) = try_join!(
       Shader::load(
         gl,
         "assets/shaders/colors.vert",
-        "assets/shaders/depth.frag"
+        "assets/shaders/colors.frag"
+      ),
+      Shader::load(
+        gl,
+        "assets/shaders/border.vert",
+        "assets/shaders/border.frag"
       ),
       Texture::load(gl, "assets/textures/metal.png", true),
       Texture::load(gl, "assets/textures/marble.jpg", true)
@@ -95,25 +102,48 @@ impl Scene {
     };
 
     Ok(Scene {
-      entities: vec![plane, cube1, cube2],
+      floor: plane,
+      cubes: vec![cube1, cube2],
       point_lights: vec![],
       spot_lights: vec![],
       dir_lights: vec![sun],
-      shader,
+      light_shader,
+      border_shader
     })
   }
 
   pub fn update(&mut self, _elapsed: f32, _camera: &Camera) {}
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
-    let mut shader = self.shader.activate(gl);
+    let mut shader = self.light_shader.activate(gl);
     shader.bind_uniform(&gl, "dir_lights", &self.dir_lights);
     shader.bind_uniform(&gl, "spot_lights", &self.spot_lights);
     shader.bind_uniform(&gl, "point_lights", &self.point_lights);
     shader.bind_uniform(gl, "camera", camera);
 
-    for entity in &self.entities {
-      entity.draw(gl, &mut shader);
+    gl.stencil_mask(0x00);
+    self.floor.draw(gl, &mut shader);
+
+    gl.stencil_op(glow::KEEP, glow::KEEP, glow::REPLACE);
+    gl.stencil_func(glow::ALWAYS, 1, 0xFF);
+    gl.stencil_mask(0xFF);
+
+    for cube in &self.cubes {
+      cube.draw(gl, &mut shader);
     }
+
+    gl.stencil_func(glow::NOTEQUAL, 1, 0xFF);
+    gl.stencil_mask(0x00);
+    gl.disable(glow::DEPTH_TEST);
+
+    let mut shader = self.border_shader.activate(gl);
+    shader.bind_uniform(gl, "camera", camera);
+    for cube in &self.cubes {
+      cube.draw(gl, &mut shader);
+    }
+
+    gl.stencil_mask(0xFF);
+    gl.stencil_func(glow::ALWAYS, 1, 0xFF);
+    gl.enable(glow::DEPTH_TEST);
   }
 }
