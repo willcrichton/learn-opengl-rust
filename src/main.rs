@@ -4,8 +4,6 @@ use crate::{camera::Camera, prelude::*, scene::Scene, user_inputs::UserInputs, w
 use instant::Instant;
 #[cfg(target_arch = "wasm32")]
 use winit::event::{ElementState, MouseButton};
-#[cfg(target_arch = "wasm32")]
-use winit::event::{ElementState, MouseButton};
 use winit::{
   dpi,
   event::{Event, VirtualKeyCode as Key, WindowEvent},
@@ -121,7 +119,7 @@ unsafe fn run_event_loop(
       _ => (),
     };
 
-    let since_last_draw = last_draw.elapsed().as_millis() as f32 / 1000.;
+    let since_last_draw = last_draw.elapsed().as_nanos() as f32 / 1e9;
     if since_last_draw > 1. / DRAW_RATE {
       draw(&gl, &state);
       window.swap_buffers();
@@ -190,7 +188,6 @@ async fn run() -> anyhow::Result<()> {
     };
 
     let update = move |state: &mut State, event: Event<()>| {
-      println!("{:?}", state.dt());
       state.user_inputs.update(&event);
       state.camera.update(state.dt(), &state.user_inputs);
       state.scene.update(state.elapsed(), &state.camera);

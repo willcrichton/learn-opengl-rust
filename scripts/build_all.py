@@ -5,7 +5,7 @@ sp.check_call('mkdir dist && cp -r assets dist && rm -rf dist/assets/shaders', s
 tags = sp.check_output('git tag', shell=True).decode('utf-8').strip().split('\n')
 for tag in tags:
     sp.check_call(f''' git checkout tags/{tag} && \
-    cargo make build-web && \
+    cargo make build-web --profile release && \
     rm -f wasm/assets && \
     cp -r wasm dist/{tag} && \
     mkdir dist/{tag}/assets && \

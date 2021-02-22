@@ -38,7 +38,7 @@ impl Scene {
       Shader::load(
         gl,
         "assets/shaders/colors.vert",
-        "assets/shaders/colors.frag"
+        "assets/shaders/depth.frag"
       ),
       Texture::load(gl, "assets/textures/metal.png", true),
       Texture::load(gl, "assets/textures/marble.jpg", true)
@@ -103,7 +103,7 @@ impl Scene {
     })
   }
 
-  pub fn update(&mut self, _elapsed: f32, camera: &Camera) {}
+  pub fn update(&mut self, _elapsed: f32, _camera: &Camera) {}
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
     let mut shader = self.shader.activate(gl);
