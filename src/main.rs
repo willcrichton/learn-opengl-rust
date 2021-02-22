@@ -57,10 +57,10 @@ unsafe fn run_event_loop(
   window: Window,
   mut state: State,
   draw: impl Fn(&Context, &State) + 'static,
-  update: impl Fn(&mut State, Event<()>) + 'static,
+  update: impl Fn(&mut State, Event<()>, bool) + 'static,
 ) {
-  #[cfg(target_arch = "wasm32")]
-  let mut cursor_locked = false;
+  //#[cfg(target_arch = "wasm32")]
+  let mut cursor_locked = if cfg!(target_arch = "wasm32") { false } else { true };
 
   // Event loop
   let mut last_draw = Instant::now();
@@ -126,7 +126,7 @@ unsafe fn run_event_loop(
       last_draw = Instant::now();
     }
 
-    update(&mut state, event);
+    update(&mut state, event, cursor_locked);
   });
 }
 
@@ -188,8 +188,10 @@ async fn run() -> anyhow::Result<()> {
       state.scene.draw(&gl, &state.camera);
     };
 
-    let update = move |state: &mut State, event: Event<()>| {
-      state.user_inputs.update(&event);
+    let update = move |state: &mut State, event: Event<()>, cursor_locked| {
+      if cursor_locked {
+        state.user_inputs.update(&event);
+      }
       state.camera.update(state.dt(), &state.user_inputs);
       state.scene.update(state.elapsed(), &state.camera);
       state.last_tick = Instant::now();

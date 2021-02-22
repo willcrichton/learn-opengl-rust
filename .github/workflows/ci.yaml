@@ -12,7 +12,7 @@ jobs:
           toolchain: nightly
           override: true
           target: wasm32-unknown-unknown
-      - run: cd .. && git clone https://github.com/willcrichton/winit && cd - && cargo install -f cargo-make && python3 scripts/build_all.py
+      - run: cd .. && git clone https://github.com/willcrichton/winit && cd - && cargo install -f cargo-make && pip3 install jinja2 && python3 scripts/build_all.py
       - uses: peaceiris/actions-gh-pages@v3.7.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

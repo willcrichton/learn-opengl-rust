@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+
+    <title>Learn OpenGL in Rust</title>
+
+    <style>
+      .tag-list button {
+        text-align: left;
+      }
+
+      .description {
+        padding: 10px;
+        border-radius: 4px;
+        background: #eee;
+      }
+
+      body {
+        padding-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Learn OpenGL in Rust</h1>
+      <p class="description">
+        This page shows my progress through the <a href="https://learnopengl.com/">Learn OpenGL</a> book. Each tab corresponds to the end of a chapter. 
+        <a href="https://github.com/willcrichton/learn-opengl-rust">The renderer</a> is written in Rust.
+        You can explore each checkpoint by clicking the buttons on the left. Chapters 7 and beyond have a fly camera &mdash; click the canvas after it's loaded to control it (mouse + WASD).
+      </p>
+      <div class="d-flex align-items-start">
+        <div class="nav flex-column nav-pills me-3 tag-list" role="tablist">
+          {% for tag in tags %}
+          <button class="nav-link {{ 'active' if loop.index == tags|length else '' }}" data-bs-toggle="pill" data-bs-target="#{{ tag.key }}" type="button" role="tab">{{ tag.name }}</button>
+          {% endfor %}
+        </div>
+        <div class="tab-content">
+          {% for tag in tags %}
+          <div class="tab-pane {{ 'active' if loop.index ==  tags|length  else '' }}" id="{{ tag.key }}" role="tabpanel">
+            <iframe data-src="http://willcrichton.net/learn-opengl-rust/{{ tag.orig }}/" width="1040" height="790"></iframe>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/js/bootstrap.bundle.min.js" integrity="sha384-b5kHyXgcpbZJO/tY9Ul7kGkf1S0CWuKcCD38l8YkeH8z8QjE0GmW1gYU5S9FOnJ0" crossorigin="anonymous"></script>
+    <script>
+      let activate = pane => {
+        let iframe = pane.querySelector('iframe');
+        iframe.src = iframe.dataset.src;
+      };
+
+      activate(document.querySelector('.tab-pane.active'));
+
+      document.querySelectorAll('.nav-link').forEach(button => {
+        button.addEventListener('click', () => {
+          let pane = document.querySelector(button.dataset.bsTarget);
+          activate(pane);    
+        })
+      });
+    </script>
+  </body>
+</html>
