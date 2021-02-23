@@ -172,6 +172,7 @@ async fn run() -> anyhow::Result<()> {
     gl.enable(glow::DEPTH_TEST);
     gl.enable(glow::STENCIL_TEST);
     gl.enable(glow::BLEND);
+    gl.enable(glow::CULL_FACE); 
 
     gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
