@@ -151,9 +151,9 @@ impl Scene {
 
   pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
     let mut shader = self.light_shader.activate(gl);
-    shader.bind_uniform(&gl, "dir_lights", &self.dir_lights);
-    shader.bind_uniform(&gl, "spot_lights", &self.spot_lights);
-    shader.bind_uniform(&gl, "point_lights", &self.point_lights);
+    shader.bind_uniform(gl, "dir_lights", &self.dir_lights);
+    shader.bind_uniform(gl, "spot_lights", &self.spot_lights);
+    shader.bind_uniform(gl, "point_lights", &self.point_lights);
     shader.bind_uniform(gl, "camera", camera);
 
     self.floor.draw(gl, &mut shader);
