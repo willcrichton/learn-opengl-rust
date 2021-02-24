@@ -1,4 +1,4 @@
-pub use anyhow::{Context as AnyhowContext, Error, Result};
+pub use anyhow::{Context as AnyhowContext, Error, Result, bail};
 pub use futures::try_join;
 pub use glm::{Mat4, Vec2, Vec3};
 pub use glow::{Context, HasContext};
@@ -12,3 +12,4 @@ pub type GlVertexArray = <Context as HasContext>::VertexArray;
 pub type GlUniformLocation = <Context as HasContext>::UniformLocation;
 pub type GlTexture = <Context as HasContext>::Texture;
 pub type GlBuffer = <Context as HasContext>::Buffer;
+pub type GlFramebuffer = <Context as HasContext>::Framebuffer;

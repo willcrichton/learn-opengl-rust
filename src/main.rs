@@ -1,7 +1,10 @@
 #![allow(dead_code)]
 
 use crate::{camera::Camera, prelude::*, scene::Scene, user_inputs::UserInputs, window::Window};
+use geometry::Geometry;
 use instant::Instant;
+use shader::Shader;
+use texture::{Texture, TextureBuilder};
 #[cfg(target_arch = "wasm32")]
 use winit::event::{ElementState, MouseButton};
 use winit::{
@@ -29,6 +32,7 @@ struct State {
   scene: Scene,
   camera: Camera,
   user_inputs: UserInputs,
+  shader_effect: i32,
 
   start: Instant,
   last_tick: Instant,
@@ -172,7 +176,7 @@ async fn run() -> anyhow::Result<()> {
     gl.enable(glow::DEPTH_TEST);
     gl.enable(glow::STENCIL_TEST);
     gl.enable(glow::BLEND);
-    gl.enable(glow::CULL_FACE); 
+    gl.enable(glow::CULL_FACE);
 
     gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
@@ -183,21 +187,60 @@ async fn run() -> anyhow::Result<()> {
       user_inputs: UserInputs::default(),
       start: Instant::now(),
       last_tick: Instant::now(),
+      shader_effect: 0,
     };
 
+    let (fbo, render_texture) = create_framebuffer(&gl, width, height)?;
+
+    let screen_shader = Shader::load(
+      &gl,
+      "assets/shaders/screen.vert",
+      "assets/shaders/screen.frag",
+    )
+    .await?;
+    let screen_geom = Geometry::Plane {
+      length: 2.,
+      width: 2.,
+      normal: glm::zero(),
+    }
+    .to_mesh(&gl, None)?;
+
     let draw = move |gl: &Context, state: &State| {
+      gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
+
       // Clear the screen with a default color
       gl.clear_color(0.1, 0.1, 0.1, 1.0);
       gl.clear(glow::COLOR_BUFFER_BIT | glow::DEPTH_BUFFER_BIT | glow::STENCIL_BUFFER_BIT);
+      gl.enable(glow::DEPTH_TEST);
 
       // Draw the scene
       state.scene.draw(&gl, &state.camera);
+
+      gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+      gl.clear_color(1., 1., 1., 1.);
+      gl.clear(glow::COLOR_BUFFER_BIT);
+
+      let mut shader = screen_shader.activate(&gl);
+      gl.disable(glow::DEPTH_TEST);
+      shader.bind_uniform(&gl, "screenTexture", &render_texture);
+      shader.bind_uniform(&gl, "effect", &state.shader_effect);
+      screen_geom.draw(&gl, &mut shader);
     };
 
     let update = move |state: &mut State, event: Event<()>, cursor_locked| {
       if cursor_locked {
         state.user_inputs.update(&event);
       }
+
+      if state.user_inputs.just_pressed(Key::Tab) {
+        let num_effects = 3;
+        state.shader_effect = if state.user_inputs.pressed(Key::LShift) {
+          (state.shader_effect + num_effects - 1) % num_effects
+        } else {
+          (state.shader_effect + 1) % num_effects
+        };
+      }
+
       state.camera.update(state.dt(), &state.user_inputs);
       state.scene.update(state.elapsed(), &state.camera);
       state.last_tick = Instant::now();
@@ -207,6 +250,46 @@ async fn run() -> anyhow::Result<()> {
   }
 
   Ok(())
+}
+
+unsafe fn create_framebuffer(
+  gl: &Context,
+  width: u32,
+  height: u32,
+) -> Result<(GlFramebuffer, Texture)> {
+  let fbo = gl.create_framebuffer().map_err(Error::msg)?;
+  gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
+  let render_texture = TextureBuilder::new(gl)
+    .with_tex_parameter(glow::TEXTURE_MIN_FILTER, glow::LINEAR)
+    .with_tex_parameter(glow::TEXTURE_MAG_FILTER, glow::LINEAR)
+    .render_texture(width, height)?;
+  gl.framebuffer_texture_2d(
+    glow::FRAMEBUFFER,
+    glow::COLOR_ATTACHMENT0,
+    glow::TEXTURE_2D,
+    Some(render_texture.texture),
+    0,
+  );
+  let rbo = gl.create_renderbuffer().map_err(Error::msg)?;
+  gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbo));
+  gl.renderbuffer_storage(
+    glow::RENDERBUFFER,
+    glow::DEPTH24_STENCIL8,
+    width as i32,
+    height as i32,
+  );
+  gl.bind_renderbuffer(glow::RENDERBUFFER, None);
+  gl.framebuffer_renderbuffer(
+    glow::FRAMEBUFFER,
+    glow::DEPTH_STENCIL_ATTACHMENT,
+    glow::RENDERBUFFER,
+    Some(rbo),
+  );
+  if gl.check_framebuffer_status(glow::FRAMEBUFFER) != glow::FRAMEBUFFER_COMPLETE {
+    bail!("Framebuffer is not complete");
+  }
+  gl.bind_framebuffer(glow::FRAMEBUFFER, None);
+  Ok((fbo, render_texture))
 }
 
 fn main() {

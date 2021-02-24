@@ -44,6 +44,33 @@ impl<'a> TextureBuilder<'a> {
     self
   }
 
+  pub unsafe fn render_texture(self, width: u32, height: u32) -> Result<Texture> {
+    let gl = self.gl;
+
+    let texture = gl.create_texture().map_err(Error::msg)?;
+    gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+
+    gl.tex_image_2d(
+      glow::TEXTURE_2D,
+      0,
+      glow::RGB as i32,
+      width as i32,
+      height as i32,
+      0,
+      glow::RGB,
+      glow::UNSIGNED_BYTE,
+      None
+    );
+      
+    for (key, value) in self.tex_parameters.into_iter() {
+      gl.tex_parameter_i32(glow::TEXTURE_2D, key, value as i32);
+    }
+
+    gl.bind_texture(glow::TEXTURE_2D, None);
+
+    Ok(Texture { texture })
+  }
+
   pub unsafe fn from_bytes(self, bytes: &[u8]) -> Result<Texture> {
     let gl = self.gl;
     let image = read_image(bytes)?;
@@ -73,6 +100,8 @@ impl<'a> TextureBuilder<'a> {
       gl.tex_parameter_i32(glow::TEXTURE_2D, key, value as i32);
     }
 
+    gl.bind_texture(glow::TEXTURE_2D, None);
+
     Ok(Texture { texture })
   }
 
@@ -84,7 +113,7 @@ impl<'a> TextureBuilder<'a> {
 
 #[derive(Clone)]
 pub struct Texture {
-  texture: GlTexture,
+  pub texture: GlTexture,
 }
 
 impl BindUniform for Texture {
