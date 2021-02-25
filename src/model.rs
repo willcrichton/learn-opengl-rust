@@ -57,7 +57,7 @@ impl Model {
 
     let load_texture = |path: &str| {
       let bytes = file_map.get(path).context("texture missing")?;
-      TextureBuilder::new(gl).with_flip(false).from_bytes(bytes)
+      TextureBuilder::new(gl).with_flip(false).build(bytes)
     };
 
     let materials = obj_materials

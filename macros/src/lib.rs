@@ -83,28 +83,34 @@ pub fn bind_shader_type_def(input: TokenStream) -> TokenStream {
         "Vec4" => "vec4",
         "Vec3" => "vec3",
         "Vec2" => "vec2",
-        "Texture" => "sampler2D",
+        "T2d" | "Texture" => "sampler2D",
+        "TCubemap" => "samplerCube",
         id => unimplemented!("primtive {}", id),
       };
 
       match &ty.arguments {
-        syn::PathArguments::AngleBracketed(args) => match ty.ident.to_string().as_str() {
-          "Vec" => {
-            let arg = if let syn::GenericArgument::Type(arg) = args.args.first().unwrap() {
-              extract_segment(arg)
-            } else {
-              unimplemented!()
-            };
+        syn::PathArguments::AngleBracketed(args) => {
+          let arg = if let syn::GenericArgument::Type(arg) = args.args.first().unwrap() {
+            extract_segment(arg)
+          } else {
+            unimplemented!()
+          };
 
-            format!(
-              "{} {}[4]; int {}_len;",
-              primitive_type(&arg.ident),
-              ident_str,
-              ident_str
-            )
+          match ty.ident.to_string().as_str() {
+            "Vec" => {
+              format!(
+                "{} {}[4]; int {}_len;",
+                primitive_type(&arg.ident),
+                ident_str,
+                ident_str
+              )
+            }
+            "Texture" => {
+              format!("{} {};", primitive_type(&arg.ident), ident_str)
+            }
+            _ => unimplemented!(),
           }
-          _ => unimplemented!(),
-        },
+        }
         syn::PathArguments::None => {
           format!("{} {};", primitive_type(&ty.ident), ident_str)
         }

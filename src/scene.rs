@@ -5,11 +5,12 @@ use crate::{
   geometry::Geometry,
   light::{DirLight, PointLight, SpotLight},
   material::Material,
+  mesh::Mesh,
   model::Model,
   prelude::*,
   shader::{ActiveShader, Shader},
   text::{Font, Text},
-  texture::TextureBuilder,
+  texture::{TCubemap, Texture, TextureBuilder},
 };
 
 struct Entity {
@@ -35,26 +36,50 @@ pub struct Scene {
   spot_lights: Vec<SpotLight>,
   dir_lights: Vec<DirLight>,
 
+  skybox_shader: Shader,
   text_shader: Shader,
   light_shader: Shader,
+
+  skybox: Mesh,
+  skybox_texture: Texture<TCubemap>,
 }
 
 impl Scene {
   pub async unsafe fn build(gl: &Context) -> Result<Self> {
     // Load all the assets
-    let (light_shader, text_shader, metal_texture, marble_texture, grass_texture, font) = try_join!(
+    let (
+      light_shader,
+      text_shader,
+      skybox_shader,
+      metal_texture,
+      marble_texture,
+      grass_texture,
+      skybox_texture,
+      font,
+    ) = try_join!(
       Shader::load(
         gl,
         "assets/shaders/colors.vert",
         "assets/shaders/colors.frag"
       ),
       Shader::load(gl, "assets/shaders/text.vert", "assets/shaders/text.frag"),
-      TextureBuilder::new(gl).from_file("assets/textures/metal.png"),
-      TextureBuilder::new(gl).from_file("assets/textures/marble.jpg"),
+      Shader::load(
+        gl,
+        "assets/shaders/skybox.vert",
+        "assets/shaders/skybox.frag"
+      ),
+      TextureBuilder::new(gl).load("assets/textures/metal.png"),
+      TextureBuilder::new(gl).load("assets/textures/marble.jpg"),
       TextureBuilder::new(gl)
         .with_tex_parameter(glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE)
         .with_tex_parameter(glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE)
-        .from_file("assets/textures/blending_transparent_window.png"),
+        .load("assets/textures/blending_transparent_window.png"),
+      TextureBuilder::new(gl).as_cubemap().load(
+        vec!["right", "left", "top", "bottom", "front", "back"]
+          .into_iter()
+          .map(|path| format!("assets/cubemaps/skybox/{}.jpg", path))
+          .collect::<Vec<_>>()
+      ),
       Font::load(gl, "assets/fonts/DejaVuSans.ttf")
     )?;
 
@@ -156,6 +181,13 @@ impl Scene {
       glm::vec2(30., 30.),
     );
 
+    let skybox = Geometry::Cube {
+      width: 2.,
+      length: 2.,
+      height: 2.,
+    }
+    .to_mesh(gl, None)?;
+
     Ok(Scene {
       floor: plane,
       cubes: vec![cube1, cube2],
@@ -165,8 +197,11 @@ impl Scene {
       dir_lights: vec![sun],
       text_shader,
       light_shader,
+      skybox_shader,
       fonts,
       text,
+      skybox,
+      skybox_texture,
     })
   }
 
@@ -179,6 +214,16 @@ impl Scene {
     screen_width: u32,
     screen_height: u32,
   ) -> Result<()> {
+    let mut shader = self.skybox_shader.activate(gl);
+    shader.bind_uniform(gl, "skybox", &self.skybox_texture);
+    shader.bind_uniform(gl, "camera", camera);
+
+    gl.depth_mask(false);
+    gl.disable(glow::CULL_FACE);
+    self.skybox.draw(gl, &mut shader);
+    gl.depth_mask(true);
+    gl.enable(glow::CULL_FACE);
+
     let mut shader = self.light_shader.activate(gl);
     shader.bind_uniform(gl, "dir_lights", &self.dir_lights);
     shader.bind_uniform(gl, "spot_lights", &self.spot_lights);
