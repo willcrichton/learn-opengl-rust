@@ -178,6 +178,7 @@ async fn run() -> anyhow::Result<()> {
     gl.enable(glow::BLEND);
     gl.enable(glow::CULL_FACE);
 
+    gl.depth_func(glow::LEQUAL);
     gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
 
     // Build monotlithic state object

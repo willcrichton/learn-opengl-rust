@@ -214,16 +214,6 @@ impl Scene {
     screen_width: u32,
     screen_height: u32,
   ) -> Result<()> {
-    let mut shader = self.skybox_shader.activate(gl);
-    shader.bind_uniform(gl, "skybox", &self.skybox_texture);
-    shader.bind_uniform(gl, "camera", camera);
-
-    gl.depth_mask(false);
-    gl.disable(glow::CULL_FACE);
-    self.skybox.draw(gl, &mut shader);
-    gl.depth_mask(true);
-    gl.enable(glow::CULL_FACE);
-
     let mut shader = self.light_shader.activate(gl);
     shader.bind_uniform(gl, "dir_lights", &self.dir_lights);
     shader.bind_uniform(gl, "spot_lights", &self.spot_lights);
@@ -244,6 +234,17 @@ impl Scene {
     for grass in grasses.into_iter().rev() {
       grass.draw(gl, &mut shader);
     }
+
+    let mut shader = self.skybox_shader.activate(gl);
+    shader.bind_uniform(gl, "skybox", &self.skybox_texture);
+    shader.bind_uniform(gl, "camera", camera);
+
+    gl.depth_mask(false);
+    gl.disable(glow::CULL_FACE);
+    self.skybox.draw(gl, &mut shader);
+    gl.depth_mask(true);
+    gl.enable(glow::CULL_FACE);
+
 
     self.text.draw(&mut self.fonts);
     for font in self.fonts.values_mut() {
