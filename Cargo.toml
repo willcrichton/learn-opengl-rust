@@ -1,5 +1,5 @@
 [package]
-name = "learning-opengl"
+name = "learn-opengl"
 version = "0.1.0"
 authors = ["Will Crichton <wcrichto@cs.stanford.edu>"]
 edition = "2018"

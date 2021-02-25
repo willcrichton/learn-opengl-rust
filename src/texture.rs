@@ -139,7 +139,8 @@ impl<'a> TextureBuilder<'a, TCubemap> {
   }
 
   pub async unsafe fn load(self, paths: Vec<String>) -> Result<Texture<TCubemap>> {
-    let all_bytes = try_join_all(paths.into_iter().map(|path| io::load_file(path))).await?;
+    let file_futures = paths.into_iter().map(|path| io::load_file(path));
+    let all_bytes = try_join_all(file_futures).await?;
     self.build(all_bytes)
   }
 }

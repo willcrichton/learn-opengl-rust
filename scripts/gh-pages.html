@@ -22,6 +22,17 @@
       body {
         padding-top: 10px;
       }
+
+      .nav {
+        max-height: 776px;
+        overflow-y: scroll;
+      }
+
+      .link-container {
+        display: flex;
+        min-height: min-content;
+        flex-direction: column;
+      }
     </style>
   </head>
   <body>
@@ -34,12 +45,14 @@
       </p>
       <div class="d-flex align-items-start">
         <div class="nav flex-column nav-pills me-3 tag-list" role="tablist">
-          {% for tag in tags %}
-          <button class="nav-link {{ 'active' if loop.index == tags|length else '' }}" data-bs-toggle="pill" data-bs-target="#{{ tag.key }}" type="button" role="tab">{{ tag.name }}</button>
-          {% endfor %}
+          <div class="link-container">
+            {% for tag in tags %}
+            <button class="nav-link {{ 'active' if loop.index == tags|length else '' }}" data-bs-toggle="pill" data-bs-target="#{{ tag.key }}" type="button" role="tab">{{ tag.name }}</button>
+            {% endfor %}
+          </div>
         </div>
         <div class="tab-content">
-          {% for tag in tags %}
+          {% for tag in tags | reverse %}
           <div class="tab-pane {{ 'active' if loop.index ==  tags|length  else '' }}" id="{{ tag.key }}" role="tabpanel">
             <iframe data-src="https://willcrichton.net/learn-opengl-rust/{{ tag.orig }}/" width="1040" height="790"></iframe>
           </div>

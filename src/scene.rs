@@ -245,7 +245,6 @@ impl Scene {
     gl.depth_mask(true);
     gl.enable(glow::CULL_FACE);
 
-
     self.text.draw(&mut self.fonts);
     for font in self.fonts.values_mut() {
       font.draw(gl, &self.text_shader, screen_width, screen_height)?;
