@@ -1,10 +1,8 @@
 #![allow(dead_code)]
 
 use crate::{camera::Camera, prelude::*, scene::Scene, user_inputs::UserInputs, window::Window};
-use geometry::Geometry;
 use instant::Instant;
-use shader::Shader;
-use texture::{Texture, TextureBuilder};
+use screen_capture::ScreenCapture;
 #[cfg(target_arch = "wasm32")]
 use winit::event::{ElementState, MouseButton};
 use winit::{
@@ -23,6 +21,7 @@ mod mesh;
 mod model;
 mod prelude;
 mod scene;
+mod screen_capture;
 mod shader;
 mod text;
 mod texture;
@@ -191,23 +190,10 @@ async fn run() -> anyhow::Result<()> {
       shader_effect: 0,
     };
 
-    let (fbo, render_texture) = create_framebuffer(&gl, width, height)?;
-
-    let screen_shader = Shader::load(
-      &gl,
-      "assets/shaders/screen.vert",
-      "assets/shaders/screen.frag",
-    )
-    .await?;
-    let screen_geom = Geometry::Plane {
-      length: 2.,
-      width: 2.,
-      normal: glm::zero(),
-    }
-    .to_mesh(&gl, None)?;
+    let screen_capture = ScreenCapture::new(&gl, width, height).await?;
 
     let draw = move |gl: &Context, state: &mut State| {
-      gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
+      screen_capture.record(gl);
 
       // Clear the screen with a default color
       gl.clear_color(0.1, 0.1, 0.1, 1.0);
@@ -215,17 +201,11 @@ async fn run() -> anyhow::Result<()> {
       gl.enable(glow::DEPTH_TEST);
 
       // Draw the scene
-      state.scene.draw(&gl, &state.camera, width, height).unwrap();
+      state.scene.draw(gl, &state.camera, width, height).unwrap();
 
-      gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-      gl.clear_color(1., 1., 1., 1.);
-      gl.clear(glow::COLOR_BUFFER_BIT);
-
-      let mut shader = screen_shader.activate(&gl);
-      gl.disable(glow::DEPTH_TEST);
-      shader.bind_uniform(&gl, "screenTexture", &render_texture);
-      shader.bind_uniform(&gl, "effect", &state.shader_effect);
-      screen_geom.draw(&gl, &mut shader);
+      screen_capture.replay(gl, |gl, shader| {
+        shader.bind_uniform(gl, "effect", &state.shader_effect);
+      });
     };
 
     let update = move |state: &mut State, event: Event<()>, cursor_locked| {
@@ -234,7 +214,7 @@ async fn run() -> anyhow::Result<()> {
       }
 
       if state.user_inputs.just_pressed(Key::Tab) {
-        let num_effects = 3;
+        let num_effects = 6;
         state.shader_effect = if state.user_inputs.pressed(Key::LShift) {
           (state.shader_effect + num_effects - 1) % num_effects
         } else {
@@ -251,47 +231,6 @@ async fn run() -> anyhow::Result<()> {
   }
 
   Ok(())
-}
-
-unsafe fn create_framebuffer(
-  gl: &Context,
-  width: u32,
-  height: u32,
-) -> Result<(GlFramebuffer, Texture)> {
-  let fbo = gl.create_framebuffer().map_err(Error::msg)?;
-  gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
-  let render_texture = TextureBuilder::new(gl)
-    .with_format(glow::RGB)
-    .with_tex_parameter(glow::TEXTURE_MIN_FILTER, glow::LINEAR)
-    .with_tex_parameter(glow::TEXTURE_MAG_FILTER, glow::LINEAR)
-    .render_texture(width, height)?;
-  gl.framebuffer_texture_2d(
-    glow::FRAMEBUFFER,
-    glow::COLOR_ATTACHMENT0,
-    glow::TEXTURE_2D,
-    Some(render_texture.texture),
-    0,
-  );
-  let rbo = gl.create_renderbuffer().map_err(Error::msg)?;
-  gl.bind_renderbuffer(glow::RENDERBUFFER, Some(rbo));
-  gl.renderbuffer_storage(
-    glow::RENDERBUFFER,
-    glow::DEPTH24_STENCIL8,
-    width as i32,
-    height as i32,
-  );
-  gl.bind_renderbuffer(glow::RENDERBUFFER, None);
-  gl.framebuffer_renderbuffer(
-    glow::FRAMEBUFFER,
-    glow::DEPTH_STENCIL_ATTACHMENT,
-    glow::RENDERBUFFER,
-    Some(rbo),
-  );
-  if gl.check_framebuffer_status(glow::FRAMEBUFFER) != glow::FRAMEBUFFER_COMPLETE {
-    bail!("Framebuffer is not complete");
-  }
-  gl.bind_framebuffer(glow::FRAMEBUFFER, None);
-  Ok((fbo, render_texture))
 }
 
 fn main() {
