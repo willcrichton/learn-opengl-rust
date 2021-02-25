@@ -18,6 +18,8 @@ pub struct TextureBuilder<'a> {
   gl: &'a Context,
   tex_parameters: HashMap<u32, u32>,
   flip: bool,
+  format: u32,
+  alignment: u32,
 }
 
 impl<'a> TextureBuilder<'a> {
@@ -30,6 +32,8 @@ impl<'a> TextureBuilder<'a> {
         glow::TEXTURE_MAG_FILTER => glow::LINEAR
       },
       flip: true,
+      format: glow::RGBA,
+      alignment: 4,
       gl,
     }
   }
@@ -44,31 +48,51 @@ impl<'a> TextureBuilder<'a> {
     self
   }
 
+  pub fn with_format(mut self, format: u32) -> Self {
+    self.format = format;
+    self
+  }
+  
+  pub fn with_alignment(mut self, alignment: u32) -> Self {
+    self.alignment = alignment;
+    self
+  }
+
   pub unsafe fn render_texture(self, width: u32, height: u32) -> Result<Texture> {
     let gl = self.gl;
 
+    gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, self.alignment as i32);
     let texture = gl.create_texture().map_err(Error::msg)?;
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+
+    let internal_format = match self.format {
+      glow::RGB | glow::RGBA => self.format,
+      glow::RED => glow::R8,
+      _ => unimplemented!()
+    };
 
     gl.tex_image_2d(
       glow::TEXTURE_2D,
       0,
-      glow::RGB as i32,
+      internal_format as i32,
       width as i32,
       height as i32,
       0,
-      glow::RGB,
+      self.format,
       glow::UNSIGNED_BYTE,
-      None
+      None,
     );
-      
+
     for (key, value) in self.tex_parameters.into_iter() {
       gl.tex_parameter_i32(glow::TEXTURE_2D, key, value as i32);
     }
 
     gl.bind_texture(glow::TEXTURE_2D, None);
 
-    Ok(Texture { texture })
+    Ok(Texture {
+      texture,
+      format: self.format,
+    })
   }
 
   pub unsafe fn from_bytes(self, bytes: &[u8]) -> Result<Texture> {
@@ -78,6 +102,7 @@ impl<'a> TextureBuilder<'a> {
     let image = image.into_rgba8();
 
     // Make new texture into TEXTURE_2D global slot
+    gl.pixel_store_i32(glow::UNPACK_ALIGNMENT, self.alignment as i32);
     let texture = gl.create_texture().map_err(Error::msg)?;
     gl.bind_texture(glow::TEXTURE_2D, Some(texture));
 
@@ -85,11 +110,11 @@ impl<'a> TextureBuilder<'a> {
     gl.tex_image_2d(
       glow::TEXTURE_2D,
       0,
-      glow::RGBA as i32,
+      self.format as i32,
       image.width() as i32,
       image.height() as i32,
       0,
-      glow::RGBA,
+      self.format,
       glow::UNSIGNED_BYTE,
       Some(image.as_raw()),
     );
@@ -102,7 +127,10 @@ impl<'a> TextureBuilder<'a> {
 
     gl.bind_texture(glow::TEXTURE_2D, None);
 
-    Ok(Texture { texture })
+    Ok(Texture {
+      texture,
+      format: self.format,
+    })
   }
 
   pub async unsafe fn from_file(self, path: impl AsRef<Path>) -> Result<Texture> {
@@ -114,6 +142,32 @@ impl<'a> TextureBuilder<'a> {
 #[derive(Clone)]
 pub struct Texture {
   pub texture: GlTexture,
+  format: u32,
+}
+
+impl Texture {
+  pub unsafe fn sub_image(
+    &self,
+    gl: &Context,
+    x_offset: u32,
+    y_offset: u32,
+    width: u32,
+    height: u32,
+    pixels: &[u8],
+  ) {
+    gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+    gl.tex_sub_image_2d(
+      glow::TEXTURE_2D,
+      0,
+      x_offset as i32,
+      y_offset as i32,
+      width as i32,
+      height as i32,
+      self.format,
+      glow::UNSIGNED_BYTE,
+      glow::PixelUnpackData::Slice(pixels),
+    );
+  }
 }
 
 impl BindUniform for Texture {

@@ -80,7 +80,9 @@ pub fn bind_shader_type_def(input: TokenStream) -> TokenStream {
 
       let primitive_type = |ident: &syn::Ident| match ident.to_string().as_str() {
         "f32" => "float",
+        "Vec4" => "vec4",
         "Vec3" => "vec3",
+        "Vec2" => "vec2",
         "Texture" => "sampler2D",
         id => unimplemented!("primtive {}", id),
       };

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
   camera::Camera,
   geometry::Geometry,
@@ -6,6 +8,7 @@ use crate::{
   model::Model,
   prelude::*,
   shader::{ActiveShader, Shader},
+  text::{Font, Text},
   texture::TextureBuilder,
 };
 
@@ -25,29 +28,34 @@ pub struct Scene {
   floor: Entity,
   cubes: Vec<Entity>,
   grasses: Vec<Entity>,
+  fonts: HashMap<String, Font>,
+  text: Text,
 
   point_lights: Vec<PointLight>,
   spot_lights: Vec<SpotLight>,
   dir_lights: Vec<DirLight>,
 
+  text_shader: Shader,
   light_shader: Shader,
 }
 
 impl Scene {
   pub async unsafe fn build(gl: &Context) -> Result<Self> {
     // Load all the assets
-    let (light_shader, metal_texture, marble_texture, grass_texture) = try_join!(
+    let (light_shader, text_shader, metal_texture, marble_texture, grass_texture, font) = try_join!(
       Shader::load(
         gl,
         "assets/shaders/colors.vert",
         "assets/shaders/colors.frag"
       ),
+      Shader::load(gl, "assets/shaders/text.vert", "assets/shaders/text.frag"),
       TextureBuilder::new(gl).from_file("assets/textures/metal.png"),
       TextureBuilder::new(gl).from_file("assets/textures/marble.jpg"),
       TextureBuilder::new(gl)
         .with_tex_parameter(glow::TEXTURE_WRAP_S, glow::CLAMP_TO_EDGE)
         .with_tex_parameter(glow::TEXTURE_WRAP_T, glow::CLAMP_TO_EDGE)
         .from_file("assets/textures/blending_transparent_window.png"),
+      Font::load(gl, "assets/fonts/DejaVuSans.ttf")
     )?;
 
     let plane_model = Geometry::Plane {
@@ -136,6 +144,18 @@ impl Scene {
       specular: glm::vec3(1., 1., 1.),
     };
 
+    let fonts = hashmap! {
+      font.name.clone() => font
+    };
+
+    let text = Text::new(
+      "Press tab to cycle effects",
+      "DejaVuSans",
+      48.,
+      [1., 1., 1., 1.],
+      glm::vec2(30., 30.),
+    );
+
     Ok(Scene {
       floor: plane,
       cubes: vec![cube1, cube2],
@@ -143,13 +163,22 @@ impl Scene {
       point_lights: vec![],
       spot_lights: vec![],
       dir_lights: vec![sun],
+      text_shader,
       light_shader,
+      fonts,
+      text,
     })
   }
 
   pub fn update(&mut self, _elapsed: f32, _camera: &Camera) {}
 
-  pub unsafe fn draw(&self, gl: &Context, camera: &Camera) {
+  pub unsafe fn draw(
+    &mut self,
+    gl: &Context,
+    camera: &Camera,
+    screen_width: u32,
+    screen_height: u32,
+  ) -> Result<()> {
     let mut shader = self.light_shader.activate(gl);
     shader.bind_uniform(gl, "dir_lights", &self.dir_lights);
     shader.bind_uniform(gl, "spot_lights", &self.spot_lights);
@@ -170,5 +199,12 @@ impl Scene {
     for grass in grasses.into_iter().rev() {
       grass.draw(gl, &mut shader);
     }
+
+    self.text.draw(&mut self.fonts);
+    for font in self.fonts.values_mut() {
+      font.draw(gl, &self.text_shader, screen_width, screen_height)?;
+    }
+
+    Ok(())
   }
 }

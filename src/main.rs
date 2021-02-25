@@ -24,6 +24,7 @@ mod model;
 mod prelude;
 mod scene;
 mod shader;
+mod text;
 mod texture;
 mod user_inputs;
 mod window;
@@ -60,7 +61,7 @@ unsafe fn run_event_loop(
   event_loop: EventLoop<()>,
   window: Window,
   mut state: State,
-  draw: impl Fn(&Context, &State) + 'static,
+  draw: impl Fn(&Context, &mut State) + 'static,
   update: impl Fn(&mut State, Event<()>, bool) + 'static,
 ) {
   #[cfg(target_arch = "wasm32")]
@@ -82,7 +83,7 @@ unsafe fn run_event_loop(
 
       // Draw to the screen when requested
       Event::RedrawRequested(_) => {
-        draw(&gl, &state);
+        draw(&gl, &mut state);
         window.swap_buffers();
       }
 
@@ -127,7 +128,7 @@ unsafe fn run_event_loop(
 
     let since_last_draw = last_draw.elapsed().as_nanos() as f32 / 1e9;
     if since_last_draw > 1. / DRAW_RATE {
-      draw(&gl, &state);
+      draw(&gl, &mut state);
       window.swap_buffers();
       last_draw = Instant::now();
     }
@@ -205,7 +206,7 @@ async fn run() -> anyhow::Result<()> {
     }
     .to_mesh(&gl, None)?;
 
-    let draw = move |gl: &Context, state: &State| {
+    let draw = move |gl: &Context, state: &mut State| {
       gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
 
       // Clear the screen with a default color
@@ -214,7 +215,7 @@ async fn run() -> anyhow::Result<()> {
       gl.enable(glow::DEPTH_TEST);
 
       // Draw the scene
-      state.scene.draw(&gl, &state.camera);
+      state.scene.draw(&gl, &state.camera, width, height).unwrap();
 
       gl.bind_framebuffer(glow::FRAMEBUFFER, None);
       gl.clear_color(1., 1., 1., 1.);
@@ -260,6 +261,7 @@ unsafe fn create_framebuffer(
   let fbo = gl.create_framebuffer().map_err(Error::msg)?;
   gl.bind_framebuffer(glow::FRAMEBUFFER, Some(fbo));
   let render_texture = TextureBuilder::new(gl)
+    .with_format(glow::RGB)
     .with_tex_parameter(glow::TEXTURE_MIN_FILTER, glow::LINEAR)
     .with_tex_parameter(glow::TEXTURE_MAG_FILTER, glow::LINEAR)
     .render_texture(width, height)?;

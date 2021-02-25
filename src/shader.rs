@@ -1,5 +1,7 @@
 use std::path::Path;
 
+use glm::Mat3;
+
 use crate::{io, prelude::*};
 
 pub struct Shader {
@@ -14,10 +16,14 @@ impl Shader {
   ) -> Result<Self> {
     let (vertex_source, fragment_source) =
       try_join!(io::load_string(vertex_path), io::load_string(fragment_path))?;
-    Ok(Self::new(gl, vertex_source, fragment_source))
+    Self::new(gl, vertex_source, fragment_source)
   }
 
-  pub unsafe fn new(gl: &Context, mut vertex_source: String, mut fragment_source: String) -> Self {
+  pub unsafe fn new(
+    gl: &Context,
+    mut vertex_source: String,
+    mut fragment_source: String,
+  ) -> Result<Self> {
     // Add directives needed for each platform
     let header = if cfg!(target_arch = "wasm32") {
       "#version 300 es\nprecision highp float;"
@@ -41,8 +47,8 @@ impl Shader {
     fragment_source = preprocess(fragment_source);
 
     // Compile individual shaders into OpenGL objects
-    let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, &vertex_source);
-    let fragment_shader = Self::build_shader(&gl, glow::FRAGMENT_SHADER, &fragment_source);
+    let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, &vertex_source)?;
+    let fragment_shader = Self::build_shader(&gl, glow::FRAGMENT_SHADER, &fragment_source)?;
 
     // Link shaders into a single program
     let shader_program = gl.create_program().unwrap();
@@ -51,7 +57,7 @@ impl Shader {
 
     gl.link_program(shader_program);
     if !gl.get_program_link_status(shader_program) {
-      panic!(
+      bail!(
         "Shader program failed to link with error: {}",
         gl.get_program_info_log(shader_program)
       );
@@ -61,10 +67,10 @@ impl Shader {
     gl.delete_shader(vertex_shader);
     gl.delete_shader(fragment_shader);
 
-    Shader { id: shader_program }
+    Ok(Shader { id: shader_program })
   }
 
-  unsafe fn build_shader(gl: &Context, shader_type: u32, source: &str) -> GlShader {
+  unsafe fn build_shader(gl: &Context, shader_type: u32, source: &str) -> Result<GlShader> {
     // Create a new OpenGL shader object
     let shader = gl.create_shader(shader_type).unwrap();
 
@@ -74,13 +80,13 @@ impl Shader {
     // Call the OpenGL shader compiler
     gl.compile_shader(shader);
     if !gl.get_shader_compile_status(shader) {
-      panic!(
+      bail!(
         "Shader failed to compile with error: {}",
         gl.get_shader_info_log(shader)
       );
     }
 
-    return shader;
+    Ok(shader)
   }
 
   unsafe fn location(&self, gl: &Context, name: &str) -> Option<GlUniformLocation> {
@@ -186,6 +192,12 @@ impl BindUniform for u32 {
 impl BindUniform for Vec3 {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
     gl.uniform_3_f32(shader.location(gl, name).as_ref(), self.x, self.y, self.z);
+  }
+}
+
+impl BindUniform for Mat3 {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
+    gl.uniform_matrix_3_f32_slice(shader.location(gl, name).as_ref(), false, self.as_slice());
   }
 }
 
