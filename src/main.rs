@@ -1,3 +1,4 @@
+#![feature(const_fn)] // needed for std140 crate
 #![allow(dead_code)]
 
 use crate::{camera::Camera, prelude::*, scene::Scene, user_inputs::UserInputs, window::Window};

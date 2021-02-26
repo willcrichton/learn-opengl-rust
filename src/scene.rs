@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 
 use crate::{
-  camera::Camera,
+  camera::{Camera, CameraBlock},
   geometry::Geometry,
   light::{DirLight, PointLight, SpotLight},
   material::Material,
   mesh::Mesh,
   model::Model,
   prelude::*,
-  shader::{ActiveShader, Shader},
+  shader::{ActiveShader, Shader, UniformBlock},
   text::{Font, Text},
   texture::{TCubemap, Texture, TextureBuilder},
 };
@@ -39,6 +39,7 @@ pub struct Scene {
   skybox_shader: Shader,
   text_shader: Shader,
   light_shader: Shader,
+  camera_ubo: UniformBlock<CameraBlock>,
 
   skybox: Mesh,
   skybox_texture: Texture<TCubemap>,
@@ -188,6 +189,15 @@ impl Scene {
     }
     .to_mesh(gl, None)?;
 
+    // Bind camera uniform block ahead of time to all shaders
+    let camera_ubo = UniformBlock::new(gl, 0)?;
+    light_shader
+      .activate(gl)
+      .bind_uniform(gl, "CameraBlock", &camera_ubo);
+    skybox_shader
+      .activate(gl)
+      .bind_uniform(gl, "CameraBlock", &camera_ubo);
+
     Ok(Scene {
       floor: plane,
       cubes: vec![cube1, cube2],
@@ -202,6 +212,7 @@ impl Scene {
       text,
       skybox,
       skybox_texture,
+      camera_ubo,
     })
   }
 
@@ -214,11 +225,14 @@ impl Scene {
     screen_width: u32,
     screen_height: u32,
   ) -> Result<()> {
+    // Update camera uniform block for all bound shaders
+    self.camera_ubo.upload(gl, &camera.uniform_block());
+
+    // Draw all lit objects
     let mut shader = self.light_shader.activate(gl);
     shader.bind_uniform(gl, "dir_lights", &self.dir_lights);
     shader.bind_uniform(gl, "spot_lights", &self.spot_lights);
     shader.bind_uniform(gl, "point_lights", &self.point_lights);
-    shader.bind_uniform(gl, "camera", camera);
 
     self.floor.draw(gl, &mut shader);
 
@@ -226,6 +240,7 @@ impl Scene {
       cube.draw(gl, &mut shader);
     }
 
+    // Sort transparent objs in order of dist to camera so transparency works correctly
     let mut grasses = self.grasses.iter().collect::<Vec<_>>();
     grasses.sort_by_key(|grass| {
       let translation = grass.transform.column_part(3, 3);
@@ -235,17 +250,19 @@ impl Scene {
       grass.draw(gl, &mut shader);
     }
 
+    // Draw cubemap skybox
     let mut shader = self.skybox_shader.activate(gl);
     shader.bind_uniform(gl, "skybox", &self.skybox_texture);
-    shader.bind_uniform(gl, "camera", camera);
 
-    gl.depth_mask(false);
+    // Have to disable face culling because we're viewing the inside of a cube
     gl.disable(glow::CULL_FACE);
     self.skybox.draw(gl, &mut shader);
-    gl.depth_mask(true);
     gl.enable(glow::CULL_FACE);
 
+    // Draw text, which queues draw commands on the individual fonts
     self.text.draw(&mut self.fonts);
+
+    // Flush each fonts draw commands
     for font in self.fonts.values_mut() {
       font.draw(gl, &self.text_shader, screen_width, screen_height)?;
     }

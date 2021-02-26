@@ -1,6 +1,10 @@
-use std::path::Path;
-
 use glm::Mat3;
+use na::{
+  dimension::{U1, U3, U4},
+  storage::Storage,
+};
+use std::{marker::PhantomData, mem::size_of, path::Path, slice};
+use std140::ReprStd140;
 
 use crate::{io, prelude::*};
 
@@ -14,9 +18,11 @@ impl Shader {
     vertex_path: impl AsRef<Path>,
     fragment_path: impl AsRef<Path>,
   ) -> Result<Self> {
+    let vertex_path = vertex_path.as_ref();
     let (vertex_source, fragment_source) =
       try_join!(io::load_string(vertex_path), io::load_string(fragment_path))?;
     Self::new(gl, vertex_source, fragment_source)
+      .context(format!("With shader path {:?}", vertex_path))
   }
 
   pub unsafe fn new(
@@ -33,7 +39,7 @@ impl Shader {
 
     // Add struct definitions for all types in the crate
     let defs = [
-      crate::camera::Camera::TYPE_DEF,
+      crate::camera::CameraBlock::BLOCK_DEF,
       crate::material::Material::TYPE_DEF,
       crate::light::PointLight::TYPE_DEF,
       crate::light::DirLight::TYPE_DEF,
@@ -81,7 +87,12 @@ impl Shader {
     gl.compile_shader(shader);
     if !gl.get_shader_compile_status(shader) {
       bail!(
-        "Shader failed to compile with error: {}",
+        "{} shader failed to compile with error: {}",
+        match shader_type {
+          glow::VERTEX_SHADER => "Vertex",
+          glow::FRAGMENT_SHADER => "Fragment",
+          _ => "???",
+        },
         gl.get_shader_info_log(shader)
       );
     }
@@ -91,6 +102,14 @@ impl Shader {
 
   unsafe fn location(&self, gl: &Context, name: &str) -> Option<GlUniformLocation> {
     gl.get_uniform_location(self.id, name)
+  }
+
+  unsafe fn block_location(&self, gl: &Context, name: &str) -> Option<u32> {
+    gl.get_uniform_block_index(self.id, name)
+  }
+
+  fn program(&self) -> GlProgram {
+    self.id
   }
 
   // I wanted to call this "use" but that's a Rust keyword :'(
@@ -103,6 +122,10 @@ impl Shader {
 // Trait for custom shader structs that contains a GLSL type definition
 pub trait ShaderTypeDef {
   const TYPE_DEF: &'static str;
+}
+
+pub trait ShaderBlockDef {
+  const BLOCK_DEF: &'static str;
 }
 
 pub struct ActiveShader<'a> {
@@ -125,12 +148,20 @@ impl<'a> ActiveShader<'a> {
     slot
   }
 
+  pub fn program(&self) -> GlProgram {
+    self.shader.program()
+  }
+
   pub unsafe fn bind_uniform<T: BindUniform>(&mut self, gl: &Context, name: &str, value: &T) {
     value.bind_uniform(gl, self, name);
   }
 
   pub unsafe fn location(&self, gl: &Context, name: &str) -> Option<GlUniformLocation> {
     self.shader.location(gl, name)
+  }
+
+  pub unsafe fn block_location(&self, gl: &Context, name: &str) -> Option<u32> {
+    self.shader.block_location(gl, name)
   }
 
   pub fn reset_textures(&mut self) {
@@ -204,5 +235,93 @@ impl BindUniform for Mat3 {
 impl BindUniform for Mat4 {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
     gl.uniform_matrix_4_f32_slice(shader.location(gl, name).as_ref(), false, self.as_slice());
+  }
+}
+
+// Represents a data buffer that passes uniforms to shaders.
+// Data must be laid out in the std140 layout, which is enforced by the
+// std140::ReprStd140 trait.
+pub struct UniformBlock<T: ReprStd140> {
+  ubo: GlBuffer,
+  binding: u32,
+  _marker: PhantomData<T>,
+}
+
+impl<T: ReprStd140> UniformBlock<T> {
+  // TODO: auto-generate binding slots?
+  pub unsafe fn new(gl: &Context, binding: u32) -> Result<Self> {
+    // Pre-allocate size_of<T> bytes
+    let ubo = gl.create_buffer().map_err(Error::msg)?;
+    gl.bind_buffer(glow::UNIFORM_BUFFER, Some(ubo));
+    gl.buffer_data_size(
+      glow::UNIFORM_BUFFER,
+      size_of::<T>() as i32,
+      glow::STATIC_DRAW,
+    );
+    gl.bind_buffer(glow::UNIFORM_BUFFER, None);
+
+    // Put the buffer at the given binding
+    gl.bind_buffer_base(glow::UNIFORM_BUFFER, binding, Some(ubo));
+
+    Ok(UniformBlock {
+      ubo,
+      binding,
+      _marker: PhantomData,
+    })
+  }
+
+  // Copy value into the uniform buffer
+  pub unsafe fn upload(&self, gl: &Context, value: &T) {
+    gl.bind_buffer(glow::UNIFORM_BUFFER, Some(self.ubo));
+
+    // Small hack to convert &T into &[u8]
+    let data = slice::from_raw_parts(value as *const T as *const u8, size_of::<T>());
+
+    gl.buffer_sub_data_u8_slice(glow::UNIFORM_BUFFER, 0, data);
+    gl.bind_buffer(glow::UNIFORM_BUFFER, None);
+  }
+}
+
+impl<T: ReprStd140> BindUniform for UniformBlock<T> {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
+    gl.uniform_block_binding(
+      shader.program(),
+      shader.block_location(gl, name).unwrap(),
+      self.binding,
+    );
+  }
+}
+
+// Utility trait to convert nalgebra types into std140 types
+pub trait GlmStd140Ext<T> {
+  fn to_std140(&self) -> T;
+}
+
+impl<S> GlmStd140Ext<std140::vec3> for na::Matrix<f32, U3, U1, S>
+where
+  S: Storage<f32, U3, U1>,
+{
+  fn to_std140(&self) -> std140::vec3 {
+    std140::vec3(self[0], self[1], self[2])
+  }
+}
+
+impl<S> GlmStd140Ext<std140::vec4> for na::Matrix<f32, U4, U1, S>
+where
+  S: Storage<f32, U4, U1>,
+{
+  fn to_std140(&self) -> std140::vec4 {
+    std140::vec4(self[0], self[1], self[2], self[3])
+  }
+}
+
+impl GlmStd140Ext<std140::mat4x4> for Mat4 {
+  fn to_std140(&self) -> std140::mat4x4 {
+    std140::mat4x4(
+      self.column(0).to_std140(),
+      self.column(1).to_std140(),
+      self.column(2).to_std140(),
+      self.column(3).to_std140(),
+    )
   }
 }

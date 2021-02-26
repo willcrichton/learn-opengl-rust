@@ -24,6 +24,7 @@ instant = "0.1"
 
 # Math library
 nalgebra-glm = "0.10"
+nalgebra = {version = "0.24", default-features = false} # can't access nalgebra via glm...
 
 # future helpers
 futures = "0.3"
@@ -37,10 +38,14 @@ tobj = "2.0"
 # Hashmap literals
 maplit = "1.0"
 
-# Sort vectors on floats
+# Sort vectors of floats
 ordered-float = "2.0"
 
+# Font loader and text rendering
 glyph_brush = "0.7"
+
+# std140 memory layout for shaders
+std140 = "0.2"
 
 
 [target.'cfg(not(any(target_arch = "wasm32")))'.dependencies]

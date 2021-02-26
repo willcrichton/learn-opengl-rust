@@ -1,8 +1,4 @@
-use crate::{
-  prelude::*,
-  shader::{ActiveShader, BindUniform, ShaderTypeDef},
-  user_inputs::UserInputs,
-};
+use crate::{prelude::*, user_inputs::UserInputs};
 use winit::event::VirtualKeyCode as Key;
 
 pub struct Camera {
@@ -74,20 +70,20 @@ impl Camera {
       self.pos += speed * self.right();
     }
   }
-}
 
-impl BindUniform for Camera {
-  unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
-    shader.bind_uniform(gl, &format!("{}.view_pos", name), &self.pos);
-    shader.bind_uniform(gl, &format!("{}.view", name), &self.view_matrix());
-    shader.bind_uniform(gl, &format!("{}.projection", name), &self.projection);
+  pub fn uniform_block(&self) -> CameraBlock {
+    CameraBlock {
+      view_pos: self.pos.to_std140(),
+      view: self.view_matrix().to_std140(),
+      projection: self.projection.to_std140(),
+    }
   }
 }
 
-impl ShaderTypeDef for Camera {
-  const TYPE_DEF: &'static str = r#"struct Camera {
-  vec3 view_pos;
-  mat4 view;
-  mat4 projection;    
-};"#;
+#[std140::repr_std140]
+#[derive(ShaderBlockDef)]
+pub struct CameraBlock {
+  view_pos: std140::vec3,
+  view: std140::mat4x4,
+  projection: std140::mat4x4,
 }

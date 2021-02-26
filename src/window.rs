@@ -53,7 +53,7 @@ mod platform {
         .unwrap()
         .document()
         .unwrap()
-        .get_element_by_id("learning-opengl")
+        .get_element_by_id("learn-opengl")
         .unwrap()
         .dyn_into::<web_sys::HtmlCanvasElement>()
         .unwrap();

@@ -12,6 +12,6 @@ args = ["build", "--target", "wasm32-unknown-unknown", "@@split(CARGO_RELEASE_AR
 command = "cargo"
 
 [tasks.build-web]
-args = ["--out-dir", "wasm/build", "--target", "web", "target/wasm32-unknown-unknown/${ENV_DIR}/learning-opengl.wasm"]
+args = ["--out-dir", "wasm/build", "--target", "web", "target/wasm32-unknown-unknown/${ENV_DIR}/learn-opengl.wasm"]
 command = "wasm-bindgen"
 dependencies = ["cargo-build-web", "wasm-bindgen-cli"]

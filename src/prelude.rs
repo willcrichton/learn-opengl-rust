@@ -1,9 +1,11 @@
+pub use crate::shader::GlmStd140Ext;
 pub use anyhow::{bail, Context as AnyhowContext, Error, Result};
 pub use futures::try_join;
 pub use glm::{Mat4, Vec2, Vec3, Vec4};
 pub use glow::{Context, HasContext};
-pub use macros::{BindUniform, ShaderTypeDef};
+pub use macros::{BindUniform, ShaderTypeDef, ShaderBlockDef};
 pub use maplit::hashmap;
+pub use nalgebra as na;
 pub use nalgebra_glm as glm;
 
 pub type GlShader = <Context as HasContext>::Shader;

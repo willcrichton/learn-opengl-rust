@@ -12,7 +12,12 @@ vec4 invert() {
 
 vec4 grayscale() {
   vec3 pixel = vec3(texture(screenTexture, TexCoords));
-  float average = 0.2126 * pixel.r + 0.7152 * pixel.g + 0.0722 * pixel.b;
+  float average;
+  if (gl_FragCoord.x < 512.) {
+    average = 0.2126 * pixel.r + 0.7152 * pixel.g + 0.0722 * pixel.b;
+  } else {
+    average = 0.33 * pixel.r + 0.33 * pixel.g + 0.33 * pixel.b;
+  }
   return vec4(average, average, average, 1.0);
 }
 

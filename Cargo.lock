@@ -830,8 +830,10 @@ dependencies = [
  "js-sys",
  "macros",
  "maplit",
+ "nalgebra",
  "nalgebra-glm",
  "ordered-float",
+ "std140",
  "tobj",
  "tokio",
  "wasm-bindgen",
@@ -1595,6 +1597,26 @@ name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
+
+[[package]]
+name = "std140"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "994e19e3c934bc3b87ac3c55f9c22c76155209af3b078b9553fee1434a8934ad"
+dependencies = [
+ "std140-macros",
+]
+
+[[package]]
+name = "std140-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d835aac2ef348b0f535ae412a07f1b62aa5e5ea423913e33e324573ff88fbeb9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "strsim"

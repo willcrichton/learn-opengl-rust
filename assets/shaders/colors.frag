@@ -10,7 +10,6 @@ uniform PointLight point_lights[16];
 uniform int point_lights_len;
 
 uniform Material material;
-uniform Camera camera;
 
 out vec4 FragColor;
 
@@ -29,7 +28,7 @@ vec4 compute_light(vec3 lightVec, vec3 light_ambient, vec3 light_diffuse, vec3 l
   vec4 diffuse = vec4(light_diffuse, 1.0) * diff * diffuse_tex;
 
   // Specular
-  vec3 viewDir = normalize(camera.view_pos - FragPos);
+  vec3 viewDir = normalize(view_pos - FragPos);
   vec3 reflectDir = reflect(-lightDir, norm);
   float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
   vec4 specular = vec4(light_specular, 1.0) * spec * specular_tex;
