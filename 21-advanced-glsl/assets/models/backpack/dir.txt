@@ -1,0 +1,8 @@
+ao.jpg
+backpack.mtl
+backpack.obj
+diffuse.jpg
+normal.png
+roughness.jpg
+source_attribution.txt
+specular.jpg
