@@ -1,4 +1,3 @@
-use anyhow::Context;
 use image::DynamicImage;
 use std::{io, path::Path};
 
@@ -45,12 +44,6 @@ pub async fn load_file(path: impl AsRef<Path>) -> io::Result<Vec<u8>> {
   };
 }
 
-// pub struct Image {
-//   pub data: Vec<u8>,
-//   pub width: u32,
-//   pub height: u32,
-// }
-
 pub async fn load_image(path: impl AsRef<Path>) -> anyhow::Result<DynamicImage> {
   let path = path.as_ref();
 
@@ -59,6 +52,7 @@ pub async fn load_image(path: impl AsRef<Path>) -> anyhow::Result<DynamicImage> 
     use image::RgbaImage;
     use wasm_bindgen::JsCast;
     use wasm_bindgen_futures::JsFuture;
+    use anyhow::Context;
 
     let image_elt = web_sys::HtmlImageElement::new().map_err(js_error)?;
     image_elt.set_src(path.to_str().context("Path::to_str")?);

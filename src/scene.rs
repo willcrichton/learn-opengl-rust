@@ -220,7 +220,7 @@ impl Scene {
 
     let exploder = Entity {
       model: backpack_model,
-      transform: glm::translation(&glm::vec3(1.5, 0., 1.5)),
+      transform: glm::translation(&glm::vec3(1.5, 3., 1.5)),
     };
 
     Ok(Scene {
