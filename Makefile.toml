@@ -1,5 +1,6 @@
 [env]
 ENV_DIR = {source="${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = {release = "release"}}
+CARGO_MAKE_CRATE_INSTALLATION_LOCKED = true 
 
 [env.release]
 CARGO_RELEASE_ARGS = "--release"
