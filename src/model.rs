@@ -7,7 +7,8 @@ use crate::{
   texture::TextureBuilder,
 };
 use futures::future::try_join_all;
-use std::{collections::HashMap, io::BufReader, path::Path};
+use image::DynamicImage;
+use std::{cell::RefCell, collections::HashMap, io::BufReader, path::Path};
 
 #[derive(Clone)]
 pub struct Model {
@@ -26,12 +27,22 @@ impl Model {
     let dir_files = io::load_string(obj_dir.join("dir.txt")).await?;
 
     // Load all files at once into a map from file name to bytes
+    enum BytesOrImage {
+      Bytes(Vec<u8>),
+      Image(DynamicImage),
+    }
     let files = try_join_all(dir_files.split("\n").map(|file| async move {
-      let bytes = io::load_file(obj_dir.join(file)).await?;
-      Ok::<_, Error>((file.to_owned(), bytes))
+      let path = obj_dir.join(file);
+      let data = match path.extension().map(|ext| ext.to_str().unwrap()) {
+        Some("jpeg") | Some("jpg") | Some("png") => {
+          BytesOrImage::Image(io::load_image(path).await?)
+        }
+        _ => BytesOrImage::Bytes(io::load_file(path).await?),
+      };
+      Ok::<_, Error>((file.to_owned(), data))
     }))
     .await?;
-    let file_map = files.into_iter().collect::<HashMap<_, _>>();
+    let file_map = RefCell::new(files.into_iter().collect::<HashMap<_, _>>());
 
     // Get model name as the directory name
     let model_name = obj_dir
@@ -42,22 +53,36 @@ impl Model {
       .to_owned();
 
     // Read obj and mtl files
-    let obj_bytes = BufReader::new(
-      &**file_map
-        .get(&(model_name + ".obj"))
-        .context("obj file missing")?,
-    );
-    let mut obj_reader = BufReader::new(obj_bytes);
+    let obj_file = if let BytesOrImage::Bytes(bytes) = file_map
+      .borrow_mut()
+      .remove(&(model_name + ".obj"))
+      .context("obj file missing")?
+    {
+      bytes
+    } else {
+      bail!("obj file is an image")
+    };
+    let mut obj_reader = BufReader::new(obj_file.as_slice());
     let (obj_models, obj_materials) = tobj::load_obj_buf(&mut obj_reader, true, |mtl_path| {
-      match file_map.get(mtl_path.to_str().unwrap()) {
-        Some(bytes) => tobj::load_mtl_buf(&mut BufReader::new(&**bytes)),
-        None => Err(tobj::LoadError::OpenFileFailed),
+      match file_map.borrow_mut().remove(mtl_path.to_str().unwrap()) {
+        Some(BytesOrImage::Bytes(bytes)) => {
+          tobj::load_mtl_buf(&mut BufReader::new(bytes.as_slice()))
+        }
+        _ => Err(tobj::LoadError::OpenFileFailed),
       }
     })?;
 
     let load_texture = |path: &str| {
-      let bytes = file_map.get(path).context("texture missing")?;
-      TextureBuilder::new(gl).with_flip(false).build(bytes)
+      let image = if let BytesOrImage::Image(image) = file_map
+        .borrow_mut()
+        .remove(path)
+        .context("texture missing")?
+      {
+        image
+      } else {
+        bail!("texture file is not an image")
+      };
+      TextureBuilder::new(gl).with_flip(false).build(image)
     };
 
     let materials = obj_materials

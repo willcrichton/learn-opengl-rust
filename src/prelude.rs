@@ -3,7 +3,7 @@ pub use anyhow::{bail, Context as AnyhowContext, Error, Result};
 pub use futures::try_join;
 pub use glm::{Mat4, Vec2, Vec3, Vec4};
 pub use glow::{Context, HasContext};
-pub use macros::{BindUniform, ShaderTypeDef, ShaderBlockDef};
+pub use macros::{BindUniform, ShaderBlockDef, ShaderTypeDef};
 pub use maplit::hashmap;
 pub use nalgebra as na;
 pub use nalgebra_glm as glm;

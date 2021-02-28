@@ -87,5 +87,9 @@ void main()
     result += compute_spot_light(spot_lights[i]);
   }
 
+  if (result.a < 0.01) {
+    discard;
+  }
+
   FragColor = result;
 }

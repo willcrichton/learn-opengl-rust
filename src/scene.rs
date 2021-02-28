@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use crate::{
   camera::{Camera, CameraBlock},
@@ -29,18 +29,20 @@ pub struct Scene {
   floor: Entity,
   cubes: Vec<Entity>,
   grasses: Vec<Entity>,
-  fonts: HashMap<String, Font>,
-  text: Text,
+  exploder: Entity,
 
+  light_shader: Shader,
   point_lights: Vec<PointLight>,
   spot_lights: Vec<SpotLight>,
   dir_lights: Vec<DirLight>,
 
-  skybox_shader: Shader,
   text_shader: Shader,
-  light_shader: Shader,
+  text: Text,
+  fonts: HashMap<String, Font>,
+
   camera_ubo: UniformBlock<CameraBlock>,
 
+  skybox_shader: Shader,
   skybox: Mesh,
   skybox_texture: Texture<TCubemap>,
 }
@@ -57,17 +59,29 @@ impl Scene {
       grass_texture,
       skybox_texture,
       font,
+      backpack_model,
     ) = try_join!(
       Shader::load(
         gl,
         "assets/shaders/colors.vert",
-        "assets/shaders/colors.frag"
+        "assets/shaders/colors.frag",
+        if cfg!(target_arch = "wasm32") {
+          None
+        } else {
+          Some(Path::new("assets/shaders/explode.geom"))
+        }
       ),
-      Shader::load(gl, "assets/shaders/text.vert", "assets/shaders/text.frag"),
+      Shader::load(
+        gl,
+        "assets/shaders/text.vert",
+        "assets/shaders/text.frag",
+        None
+      ),
       Shader::load(
         gl,
         "assets/shaders/skybox.vert",
-        "assets/shaders/skybox.frag"
+        "assets/shaders/skybox.frag",
+        None
       ),
       TextureBuilder::new(gl).load("assets/textures/metal.png"),
       TextureBuilder::new(gl).load("assets/textures/marble.jpg"),
@@ -81,7 +95,8 @@ impl Scene {
           .map(|path| format!("assets/cubemaps/skybox/{}.jpg", path))
           .collect::<Vec<_>>()
       ),
-      Font::load(gl, "assets/fonts/DejaVuSans.ttf")
+      Font::load(gl, "assets/fonts/DejaVuSans.ttf"),
+      Model::load(gl, "assets/models/backpack")
     )?;
 
     let plane_model = Geometry::Plane {
@@ -123,7 +138,7 @@ impl Scene {
       transform: glm::translation(&glm::vec3(-1., 0., -1.)),
     };
     let cube2 = Entity {
-      model: box_model,
+      model: box_model.clone(),
       transform: glm::translation(&glm::vec3(2., 0., 0.)),
     };
 
@@ -174,8 +189,13 @@ impl Scene {
       font.name.clone() => font
     };
 
+    let text = if cfg!(target_arch = "wasm32") {
+      "Geometry shader doesn't work on WebGL2 yet :("
+    } else {
+      "Press tab to cycle effects"
+    };
     let text = Text::new(
-      "Press tab to cycle effects",
+      text,
       "DejaVuSans",
       48.,
       [1., 1., 1., 1.],
@@ -198,6 +218,11 @@ impl Scene {
       .activate(gl)
       .bind_uniform(gl, "CameraBlock", &camera_ubo);
 
+    let exploder = Entity {
+      model: backpack_model,
+      transform: glm::translation(&glm::vec3(1.5, 0., 1.5)),
+    };
+
     Ok(Scene {
       floor: plane,
       cubes: vec![cube1, cube2],
@@ -213,6 +238,7 @@ impl Scene {
       skybox,
       skybox_texture,
       camera_ubo,
+      exploder,
     })
   }
 
@@ -222,6 +248,7 @@ impl Scene {
     &mut self,
     gl: &Context,
     camera: &Camera,
+    time: f32,
     screen_width: u32,
     screen_height: u32,
   ) -> Result<()> {
@@ -233,12 +260,18 @@ impl Scene {
     shader.bind_uniform(gl, "dir_lights", &self.dir_lights);
     shader.bind_uniform(gl, "spot_lights", &self.spot_lights);
     shader.bind_uniform(gl, "point_lights", &self.point_lights);
+    shader.bind_uniform(gl, "time", &time);
+    shader.bind_uniform(gl, "should_explode", &false);
 
     self.floor.draw(gl, &mut shader);
 
     for cube in &self.cubes {
       cube.draw(gl, &mut shader);
     }
+
+    shader.bind_uniform(gl, "should_explode", &true);
+    self.exploder.draw(gl, &mut shader);
+    shader.bind_uniform(gl, "should_explode", &false);
 
     // Sort transparent objs in order of dist to camera so transparency works correctly
     let mut grasses = self.grasses.iter().collect::<Vec<_>>();

@@ -203,7 +203,10 @@ async fn run() -> anyhow::Result<()> {
       gl.enable(glow::DEPTH_TEST);
 
       // Draw the scene
-      state.scene.draw(gl, &state.camera, width, height).unwrap();
+      state
+        .scene
+        .draw(gl, &state.camera, state.elapsed(), width, height)
+        .unwrap();
 
       screen_capture.replay(gl, |gl, shader| {
         shader.bind_uniform(gl, "effect", &state.shader_effect);

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Cursor, marker::PhantomData, path::Path};
+use std::{collections::HashMap, marker::PhantomData, path::Path};
 
 use crate::{
   io,
@@ -6,7 +6,7 @@ use crate::{
   shader::{ActiveShader, BindUniform},
 };
 use futures::future::try_join_all;
-use image::{io::Reader as ImageReader, GenericImageView};
+use image::{DynamicImage, GenericImageView};
 
 // Each marker struct represents a different texture target (e.g. TEXTURE_2D)
 #[derive(Clone)]
@@ -54,10 +54,10 @@ impl<'a> TextureBuilder<'a, T2d> {
     }
   }
 
-  pub unsafe fn build(self, bytes: &[u8]) -> Result<Texture<T2d>> {
+  pub unsafe fn build(self, image: DynamicImage) -> Result<Texture<T2d>> {
     let target = Self::target();
     let internal_format = self.internal_format();
-    let (image, (width, height)) = self.read_image(bytes)?;
+    let (image, (width, height)) = self.convert_image(image);
 
     // Make new texture into TEXTURE_2D global slot
     let gl = self.gl;
@@ -92,21 +92,21 @@ impl<'a> TextureBuilder<'a, T2d> {
   }
 
   pub async unsafe fn load(self, path: impl AsRef<Path>) -> Result<Texture<T2d>> {
-    let bytes = io::load_file(path).await?;
-    self.build(&bytes)
+    let image = io::load_image(path).await?;
+    self.build(image)
   }
 }
 
 impl<'a> TextureBuilder<'a, TCubemap> {
-  pub unsafe fn build(self, all_bytes: Vec<Vec<u8>>) -> Result<Texture<TCubemap>> {
+  pub unsafe fn build(self, images: Vec<DynamicImage>) -> Result<Texture<TCubemap>> {
     let target = Self::target();
     let internal_format = self.internal_format();
 
     // Parse every image
-    let images = all_bytes
+    let images = images
       .into_iter()
-      .map(|bytes| Ok(self.read_image(&bytes)?))
-      .collect::<Result<Vec<_>>>()?;
+      .map(|image| self.convert_image(image))
+      .collect::<Vec<_>>();
 
     let gl = self.gl;
     let texture = gl.create_texture().map_err(Error::msg)?;
@@ -139,7 +139,7 @@ impl<'a> TextureBuilder<'a, TCubemap> {
   }
 
   pub async unsafe fn load(self, paths: Vec<String>) -> Result<Texture<TCubemap>> {
-    let file_futures = paths.into_iter().map(|path| io::load_file(path));
+    let file_futures = paths.into_iter().map(|path| io::load_image(path));
     let all_bytes = try_join_all(file_futures).await?;
     self.build(all_bytes)
   }
@@ -208,25 +208,16 @@ impl<'a, Target: TextureTarget> TextureBuilder<'a, Target> {
     Target::TARGET
   }
 
-  fn read_image(&self, bytes: &[u8]) -> Result<(Vec<u8>, (u32, u32))> {
-    let format = image::guess_format(&bytes)?;
-    let mut img_reader = ImageReader::new(Cursor::new(bytes));
-    img_reader.set_format(format);
-    let dyn_image = img_reader.decode()?;
-    let dyn_image = if self.flip {
-      dyn_image.flipv()
-    } else {
-      dyn_image
-    };
-
-    let dimensions = dyn_image.dimensions();
+  fn convert_image(&self, image: DynamicImage) -> (Vec<u8>, (u32, u32)) {
+    let image = if self.flip { image.flipv() } else { image };
+    let dimensions = image.dimensions();
     let bytes = match self.format {
-      glow::RGB => dyn_image.into_rgb8().into_raw(),
-      glow::RGBA => dyn_image.into_rgba8().into_raw(),
+      glow::RGB => image.into_rgb8().into_raw(),
+      glow::RGBA => image.into_rgba8().into_raw(),
       _ => unimplemented!(),
     };
 
-    Ok((bytes, dimensions))
+    (bytes, dimensions)
   }
 
   unsafe fn apply_texture_parameters(gl: &Context, tex_parameters: HashMap<u32, u32>) {

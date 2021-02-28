@@ -17,11 +17,23 @@ impl Shader {
     gl: &Context,
     vertex_path: impl AsRef<Path>,
     fragment_path: impl AsRef<Path>,
+    geometry_path: Option<&Path>,
   ) -> Result<Self> {
     let vertex_path = vertex_path.as_ref();
-    let (vertex_source, fragment_source) =
-      try_join!(io::load_string(vertex_path), io::load_string(fragment_path))?;
-    Self::new(gl, vertex_source, fragment_source)
+    let (vertex_source, fragment_source, geometry_source) = try_join!(
+      io::load_string(vertex_path),
+      io::load_string(fragment_path),
+      async {
+        match geometry_path {
+          Some(path) => {
+            let bytes = io::load_string(path).await;
+            bytes.map(|bytes| Some(bytes))
+          }
+          None => Ok(None),
+        }
+      }
+    )?;
+    Self::new(gl, vertex_source, fragment_source, geometry_source)
       .context(format!("With shader path {:?}", vertex_path))
   }
 
@@ -29,10 +41,11 @@ impl Shader {
     gl: &Context,
     mut vertex_source: String,
     mut fragment_source: String,
+    mut geometry_source: Option<String>,
   ) -> Result<Self> {
     // Add directives needed for each platform
     let header = if cfg!(target_arch = "wasm32") {
-      "#version 300 es\nprecision highp float;"
+      "#version 300 es\nprecision highp float;\n#define WASM\n"
     } else {
       "#version 330 core"
     };
@@ -51,15 +64,22 @@ impl Shader {
 
     vertex_source = preprocess(vertex_source);
     fragment_source = preprocess(fragment_source);
+    geometry_source = geometry_source.map(|s| preprocess(s));
 
     // Compile individual shaders into OpenGL objects
     let vertex_shader = Self::build_shader(&gl, glow::VERTEX_SHADER, &vertex_source)?;
     let fragment_shader = Self::build_shader(&gl, glow::FRAGMENT_SHADER, &fragment_source)?;
+    let geometry_shader = geometry_source
+      .map(|s| Self::build_shader(&gl, glow::GEOMETRY_SHADER, &s))
+      .transpose()?;
 
     // Link shaders into a single program
     let shader_program = gl.create_program().unwrap();
     gl.attach_shader(shader_program, vertex_shader);
     gl.attach_shader(shader_program, fragment_shader);
+    if let Some(geometry_shader) = geometry_shader {
+      gl.attach_shader(shader_program, geometry_shader);
+    }
 
     gl.link_program(shader_program);
     if !gl.get_program_link_status(shader_program) {
@@ -72,6 +92,9 @@ impl Shader {
     // Cleanup shaders after linking
     gl.delete_shader(vertex_shader);
     gl.delete_shader(fragment_shader);
+    if let Some(geometry_shader) = geometry_shader {
+      gl.delete_shader(geometry_shader);
+    }
 
     Ok(Shader { id: shader_program })
   }
@@ -187,6 +210,15 @@ impl<T: BindUniform> BindUniform for Vec<T> {
 impl<T: BindUniform> BindUniform for &T {
   unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
     (*self).bind_uniform(gl, shader, name);
+  }
+}
+
+impl BindUniform for bool {
+  unsafe fn bind_uniform(&self, gl: &Context, shader: &mut ActiveShader, name: &str) {
+    gl.uniform_1_i32(
+      shader.location(gl, name).as_ref(),
+      if *self { 1 } else { 0 },
+    );
   }
 }
 

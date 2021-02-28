@@ -85,6 +85,7 @@ impl ScreenCapture {
       &gl,
       "assets/shaders/screen.vert",
       "assets/shaders/screen.frag",
+      None,
     )
     .await?;
 
